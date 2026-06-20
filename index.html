@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KryptoDesk — Trading Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root{--bg:#0a0c10;--bg2:#10131a;--bg3:#161b26;--bg4:#1e2536;--border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.13);--text:#e8eaf0;--text2:#8b92a8;--text3:#565d74;--accent:#6c63ff;--accent2:#8b84ff;--green:#22c55e;--green-bg:rgba(34,197,94,0.10);--red:#ef4444;--red-bg:rgba(239,68,68,0.10);--amber:#f59e0b;--amber-bg:rgba(245,158,11,0.10);--blue:#3b82f6;--blue-bg:rgba(59,130,246,0.10);--radius:12px;--radius-sm:8px;--font:'Inter',system-ui,sans-serif;--mono:'JetBrains Mono','Fira Code',monospace;}
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:14px;min-height:100vh;line-height:1.5;}
+  .app{display:flex;flex-direction:column;min-height:100vh;}
+  .topbar{display:flex;align-items:center;justify-content:space-between;padding:0 24px;height:56px;background:var(--bg2);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;gap:12px;}
+  .logo{display:flex;align-items:center;gap:10px;}.logo-icon{width:30px;height:30px;background:var(--accent);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;}
+  .logo-text{font-size:15px;font-weight:600;letter-spacing:-0.3px;}.logo-sub{font-size:11px;color:var(--text3);letter-spacing:0.05em;text-transform:uppercase;}
+  .topbar-right{display:flex;align-items:center;gap:10px;}
+  .date-badge{font-size:12px;color:var(--text2);background:var(--bg3);border:1px solid var(--border);padding:4px 10px;border-radius:20px;font-family:var(--mono);}
+  .fx-badge{font-size:11px;color:var(--text3);font-family:var(--mono);}
+  .refresh-btn{background:var(--accent);color:#fff;border:none;padding:6px 14px;border-radius:var(--radius-sm);font-size:12px;font-weight:500;cursor:pointer;display:flex;align-items:center;gap:6px;transition:opacity .15s;}
+  .refresh-btn:hover{opacity:.85;}.refresh-btn.loading{opacity:.6;pointer-events:none;}
+  .nav-tabs{display:flex;gap:2px;padding:0 24px;background:var(--bg2);border-bottom:1px solid var(--border);overflow-x:auto;}
+  .nav-tab{padding:10px 14px;font-size:13px;font-weight:500;color:var(--text3);cursor:pointer;border:none;background:none;border-bottom:2px solid transparent;transition:all .15s;white-space:nowrap;}
+  .nav-tab:hover{color:var(--text2);}.nav-tab.active{color:var(--accent2);border-bottom-color:var(--accent);}
+  .main{flex:1;padding:20px 24px;}.tab-panel{display:none;}.tab-panel.active{display:block;}
+  .grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px;}
+  .grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px;}
+  .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;}
+  .grid-65-35{display:grid;grid-template-columns:1.8fr 1fr;gap:16px;margin-bottom:16px;}
+  .grid-auto{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px;}
+  .card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:16px;}
+  .card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;gap:8px;flex-wrap:wrap;}
+  .card-title{font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.08em;}
+  .metric-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;}
+  .metric-label{font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;}
+  .metric-value{font-size:22px;font-weight:600;font-family:var(--mono);letter-spacing:-1px;line-height:1.1;}
+  .metric-change{font-size:12px;margin-top:4px;display:flex;align-items:center;gap:4px;}
+  .up{color:var(--green);}.down{color:var(--red);}.neutral{color:var(--text3);}
+  .pill{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;}
+  .pill.buy{background:var(--green-bg);color:var(--green);border:1px solid rgba(34,197,94,.2);}
+  .pill.sell{background:var(--red-bg);color:var(--red);border:1px solid rgba(239,68,68,.2);}
+  .pill.wait{background:var(--amber-bg);color:var(--amber);border:1px solid rgba(245,158,11,.2);}
+  .scroll-list{max-height:600px;overflow-y:auto;margin:0 -4px;padding:0 4px;}
+  .coin-row{display:flex;align-items:center;justify-content:space-between;padding:9px 8px;border-bottom:1px solid var(--border);cursor:pointer;border-radius:8px;transition:background .12s;margin:0 -8px;}
+  .coin-row:hover{background:var(--bg3);}
+  .coin-left{display:flex;align-items:center;gap:10px;}.coin-rank{font-size:10px;color:var(--text3);font-family:var(--mono);width:22px;text-align:right;}
+  .coin-icon{width:34px;height:30px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0;}
+  .coin-name{font-size:13px;font-weight:600;}.coin-sym{font-size:11px;color:var(--text3);}
+  .coin-price{font-family:var(--mono);font-size:13px;font-weight:500;text-align:right;}
+  .coin-right{text-align:right;display:flex;align-items:center;gap:12px;}.chart-hint{color:var(--text3);font-size:13px;}
+  .analysis-block{background:var(--bg3);border-radius:var(--radius-sm);padding:14px;margin-bottom:10px;}
+  .analysis-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+  .analysis-title{font-size:12px;font-weight:600;color:var(--text);}.analysis-body{font-size:12px;color:var(--text2);line-height:1.65;}
+  .opp-card{background:var(--bg3);border-radius:var(--radius-sm);padding:14px;border-left:3px solid transparent;margin-bottom:10px;}
+  .opp-card.buy-opp{border-left-color:var(--green);}.opp-card.avoid{border-left-color:var(--red);}.opp-card.watch{border-left-color:var(--amber);}
+  .opp-title{font-size:13px;font-weight:600;margin-bottom:4px;}.opp-body{font-size:12px;color:var(--text2);line-height:1.55;}
+  .opp-meta{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;}.opp-tag{font-size:10px;color:var(--text3);background:var(--bg4);padding:2px 8px;border-radius:6px;}
+  .ind-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+  .ind-item{background:var(--bg3);border-radius:var(--radius-sm);padding:10px 12px;display:flex;align-items:center;justify-content:space-between;}
+  .ind-label{font-size:11px;color:var(--text3);}.ind-val{font-family:var(--mono);font-size:13px;font-weight:600;}
+  .gauge-bar{height:8px;border-radius:4px;margin:10px 0;background:linear-gradient(to right,#ef4444,#f59e0b,#22c55e);position:relative;}
+  .gauge-cursor{position:absolute;top:-4px;width:16px;height:16px;background:#fff;border-radius:50%;transform:translateX(-50%);box-shadow:0 0 0 3px var(--accent);transition:left .4s ease;}
+  .gauge-labels{display:flex;justify-content:space-between;font-size:10px;color:var(--text3);}
+  .trade-form{background:var(--bg3);border-radius:var(--radius);padding:16px;margin-bottom:16px;}
+  .form-row{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-bottom:10px;}
+  .form-row-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px;}
+  .form-row-2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;}
+  .form-group{display:flex;flex-direction:column;gap:4px;}
+  .form-label{font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:0.05em;}
+  .form-input,.form-select{background:var(--bg4);border:1px solid var(--border2);color:var(--text);border-radius:var(--radius-sm);padding:7px 10px;font-size:13px;font-family:var(--font);outline:none;transition:border-color .15s;width:100%;}
+  .form-input:focus,.form-select:focus{border-color:var(--accent);}.form-input::placeholder{color:var(--text3);}.form-select option{background:var(--bg3);}
+  .form-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:4px;}
+  .btn-primary{background:var(--accent);color:#fff;border:none;padding:8px 18px;border-radius:var(--radius-sm);font-size:13px;font-weight:500;cursor:pointer;transition:opacity .15s;}.btn-primary:hover{opacity:.85;}
+  .btn-secondary{background:var(--bg4);color:var(--text2);border:1px solid var(--border2);padding:8px 18px;border-radius:var(--radius-sm);font-size:13px;font-weight:500;cursor:pointer;}
+  .trade-table{width:100%;border-collapse:collapse;}
+  .trade-table th{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.08em;padding:8px 10px;text-align:left;border-bottom:1px solid var(--border);font-weight:600;}
+  .trade-table td{padding:10px;font-size:13px;border-bottom:1px solid var(--border);vertical-align:middle;}
+  .trade-table tr:last-child td{border-bottom:none;}.trade-table tr:hover td{background:rgba(255,255,255,0.02);}
+  .long{color:var(--green);font-weight:600;}.short{color:var(--red);font-weight:600;}
+  .pnl-pos{color:var(--green);font-family:var(--mono);font-weight:600;}.pnl-neg{color:var(--red);font-family:var(--mono);font-weight:600;}.pnl-open{color:var(--text3);font-family:var(--mono);}
+  .delete-btn{background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px;padding:2px 6px;border-radius:4px;transition:.15s;}.delete-btn:hover{color:var(--red);background:var(--red-bg);}
+  .stats-row{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:16px;}
+  .stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;}
+  .section-title{font-size:12px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:12px;display:flex;align-items:center;gap:8px;}.section-title::after{content:'';flex:1;height:1px;background:var(--border);}
+  ::-webkit-scrollbar{width:6px;height:6px;}::-webkit-scrollbar-track{background:transparent;}::-webkit-scrollbar-thumb{background:var(--bg4);border-radius:3px;}
+  .skeleton{background:linear-gradient(90deg,var(--bg3) 25%,var(--bg4) 50%,var(--bg3) 75%);background-size:200% 100%;animation:shimmer 1.4s infinite;border-radius:4px;height:18px;}
+  @keyframes shimmer{0%{background-position:-200% 0;}100%{background-position:200% 0;}}
+  .dom-bar{height:6px;border-radius:3px;background:var(--bg4);overflow:hidden;margin:6px 0;}.dom-fill{height:100%;border-radius:3px;transition:width .5s ease;}
+  .ai-loading{display:flex;align-items:center;gap:10px;color:var(--text3);font-size:13px;padding:20px;justify-content:center;}
+  .ai-dot{width:6px;height:6px;border-radius:50%;background:var(--accent);animation:pulse 1.2s infinite;}.ai-dot:nth-child(2){animation-delay:.2s;}.ai-dot:nth-child(3){animation-delay:.4s;}
+  @keyframes pulse{0%,80%,100%{opacity:.2;transform:scale(.8)}40%{opacity:1;transform:scale(1)}}
+  .error-msg{color:var(--red);font-size:12px;padding:12px;text-align:center;background:var(--red-bg);border-radius:var(--radius-sm);}
+  .timestamp{font-size:10px;color:var(--text3);font-family:var(--mono);}
+  .note-input{width:100%;background:var(--bg4);border:1px solid var(--border2);color:var(--text);border-radius:var(--radius-sm);padding:6px 10px;font-size:12px;font-family:var(--font);resize:none;outline:none;transition:border-color .15s;}.note-input:focus{border-color:var(--accent);}
+  .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:1000;display:none;align-items:center;justify-content:center;padding:20px;}.modal-overlay.open{display:flex;}
+  .modal{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius);width:100%;max-width:860px;max-height:92vh;overflow-y:auto;padding:20px;}
+  .modal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
+  .modal-close{background:var(--bg4);border:1px solid var(--border2);color:var(--text2);border-radius:8px;width:30px;height:30px;cursor:pointer;font-size:16px;}
+  .tf-btns{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px;}
+  .tf-btn{background:var(--bg4);border:1px solid var(--border2);color:var(--text3);padding:4px 11px;border-radius:6px;font-size:12px;cursor:pointer;font-family:var(--mono);}.tf-btn.active{background:var(--accent);color:#fff;border-color:var(--accent);}
+  .modal-chart-wrap{position:relative;height:300px;margin:6px 0 14px;}
+  .mtf-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;}
+  .mtf-chip{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:6px 10px;display:flex;flex-direction:column;align-items:center;gap:2px;min-width:62px;}
+  .mtf-tf{font-size:10px;color:var(--text3);font-family:var(--mono);}
+  .verdict-box{background:var(--bg3);border-radius:var(--radius-sm);padding:14px;margin-bottom:14px;border-left:3px solid var(--accent);}
+  .dca-tier{font-size:11px;font-weight:700;padding:3px 10px;border-radius:6px;letter-spacing:.04em;}
+  .heatmap{display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:6px;max-height:260px;overflow-y:auto;}
+  .heat-cell{border-radius:8px;padding:9px 6px;cursor:pointer;text-align:center;transition:transform .1s;}.heat-cell:hover{transform:scale(1.04);}
+  .heat-sym{font-size:11px;font-weight:700;color:#fff;}.heat-chg{font-size:10px;font-family:var(--mono);color:rgba(255,255,255,.9);}
+  .alert-row{display:flex;align-items:center;justify-content:space-between;padding:10px;border-bottom:1px solid var(--border);font-size:13px;}.alert-row.triggered{background:var(--green-bg);}
+  .search-input{background:var(--bg4);border:1px solid var(--border2);color:var(--text);border-radius:20px;padding:5px 12px;font-size:12px;outline:none;width:160px;}
+  .regime{display:inline-block;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;}
+  @media(max-width:900px){.grid-4{grid-template-columns:1fr 1fr;}.grid-3{grid-template-columns:1fr;}.grid-2{grid-template-columns:1fr;}.grid-65-35{grid-template-columns:1fr;}.form-row{grid-template-columns:1fr 1fr;}.form-row-3{grid-template-columns:1fr;}.stats-row{grid-template-columns:1fr 1fr;}.stat-grid{grid-template-columns:1fr 1fr;}}
+</style>
+</head>
+<body>
+<div class="app">
+
+<header class="topbar">
+  <div class="logo"><div class="logo-icon">⚡</div><div><div class="logo-text">KryptoDesk</div><div class="logo-sub">Trading Intelligence</div></div></div>
+  <div class="topbar-right"><span class="fx-badge" id="fxBadge"></span><div class="date-badge" id="dateBadge">—</div><button class="refresh-btn" id="refreshBtn" onclick="loadAll()"><span id="refreshIcon">↻</span> Aktualizovať</button></div>
+</header>
+
+<nav class="nav-tabs">
+  <button class="nav-tab active" data-tab="overview" onclick="switchTab('overview',this)">📊 Prehľad</button>
+  <button class="nav-tab" data-tab="analysis" onclick="switchTab('analysis',this)">🧠 Analýza</button>
+  <button class="nav-tab" data-tab="signals" onclick="switchTab('signals',this)">🎯 Signály</button>
+  <button class="nav-tab" data-tab="dca" onclick="switchTab('dca',this)">💧 DCA</button>
+  <button class="nav-tab" data-tab="portfolio" onclick="switchTab('portfolio',this)">💼 Portfólio (HODL)</button>
+  <button class="nav-tab" data-tab="alerts" onclick="switchTab('alerts',this)">🔔 Alerty</button>
+  <button class="nav-tab" data-tab="trades" onclick="switchTab('trades',this)">📓 Trade log (Futures)</button>
+</nav>
+
+<main class="main">
+
+  <!-- OVERVIEW -->
+  <div class="tab-panel active" id="tab-overview">
+    <div class="grid-4" id="metricCards">
+      <div class="metric-card"><div class="metric-label">BTC</div><div class="skeleton" style="height:28px;width:120px"></div></div>
+      <div class="metric-card"><div class="metric-label">ETH</div><div class="skeleton" style="height:28px;width:120px"></div></div>
+      <div class="metric-card"><div class="metric-label">Priem. zmena 24h</div><div class="skeleton" style="height:28px;width:90px"></div></div>
+      <div class="metric-card"><div class="metric-label">Fear &amp; Greed</div><div class="skeleton" style="height:28px;width:80px"></div></div>
+    </div>
+    <div class="card" style="margin-bottom:16px"><div class="card-header"><span class="card-title">Heatmapa trhu (24h)</span></div><div class="heatmap" id="heatmap"><div class="skeleton" style="height:60px;grid-column:1/-1"></div></div></div>
+    <div class="grid-65-35">
+      <div class="card">
+        <div class="card-header"><span class="card-title">Top 100 — klikni pre graf</span><div style="display:flex;gap:8px;align-items:center"><input class="search-input" id="coinSearch" placeholder="🔎 hľadať coin…" oninput="renderCoinList()"><span class="timestamp" id="priceTimestamp"></span></div></div>
+        <div class="scroll-list" id="coinList"><div class="ai-loading"><div class="ai-dot"></div><div class="ai-dot"></div><div class="ai-dot"></div><span>Načítavam kurzy…</span></div></div>
+      </div>
+      <div>
+        <div class="card" style="margin-bottom:16px"><div class="card-header"><span class="card-title">Fear &amp; Greed Index</span></div><div id="fearGreedWidget"><div class="skeleton" style="height:60px"></div></div></div>
+        <div class="card"><div class="card-header"><span class="card-title">Top movers (24h)</span></div><div id="rsWidget"><div class="skeleton" style="height:80px"></div></div></div>
+      </div>
+    </div>
+    <div class="grid-2">
+      <div class="card"><div class="card-header"><span class="card-title">Indikátory — BTC (1D)</span></div><div class="ind-grid" id="btcIndicators"><div class="skeleton" style="height:80px;grid-column:1/-1"></div></div></div>
+      <div class="card"><div class="card-header"><span class="card-title">Indikátory — ETH (1D)</span></div><div class="ind-grid" id="ethIndicators"><div class="skeleton" style="height:80px;grid-column:1/-1"></div></div></div>
+    </div>
+  </div>
+
+  <!-- ANALYSIS -->
+  <div class="tab-panel" id="tab-analysis">
+    <div class="card" style="margin-bottom:16px;background:var(--blue-bg);border:1px solid rgba(59,130,246,.15)"><div style="font-size:12px;color:var(--text2);line-height:1.6">ℹ️ Analýza sa počíta <b>lokálne</b> z reálnych sviečok (Binance) — RSI, EMA 20/50/200, MACD, ATR, Bollinger, Stochastic, objem, podpory/odpory. Pre analýzu na konkrétnom timeframe klikni na coin → graf 1m až 1T.</div></div>
+    <div class="grid-65-35">
+      <div><div class="card" style="margin-bottom:16px"><div class="card-header"><span class="card-title">🧠 Denná technická analýza trhu</span><span class="timestamp" id="analysisTs"></span></div><div id="analysisContent"><div class="ai-loading"><div class="ai-dot"></div><div class="ai-dot"></div><div class="ai-dot"></div><span>Počítam analýzu…</span></div></div></div></div>
+      <div>
+        <div class="card" style="margin-bottom:16px"><div class="card-header"><span class="card-title">📍 Úrovne — BTC</span></div><div id="btcLevels"><div class="skeleton" style="height:120px"></div></div></div>
+        <div class="card"><div class="card-header"><span class="card-title">📍 Úrovne — ETH</span></div><div id="ethLevels"><div class="skeleton" style="height:120px"></div></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SIGNALS -->
+  <div class="tab-panel" id="tab-signals">
+    <div class="grid-3">
+      <div class="card"><div class="card-header"><span class="card-title">✅ Príležitosti na nákup</span></div><div id="buySignals"><div class="ai-loading"><div class="ai-dot"></div><div class="ai-dot"></div><div class="ai-dot"></div><span id="sigProg"></span></div></div></div>
+      <div class="card"><div class="card-header"><span class="card-title">⛔ Teraz nekupovať</span></div><div id="avoidSignals"></div></div>
+      <div class="card"><div class="card-header"><span class="card-title">👀 Sledovať</span></div><div id="watchSignals"></div></div>
+    </div>
+    <div class="card"><div class="card-header"><span class="card-title">Skóre podľa coinu (1D) — TOP 100</span><span class="timestamp" id="signalTs"></span></div><div style="overflow-x:auto;max-height:520px;overflow-y:auto" id="signalTable"></div></div>
+  </div>
+
+  <!-- DCA -->
+  <div class="tab-panel" id="tab-dca">
+    <div class="card" style="margin-bottom:16px;background:var(--green-bg);border:1px solid rgba(34,197,94,.15)"><div style="font-size:12px;color:var(--text2);line-height:1.6">💧 <b>DCA &amp; Dno modul.</b> Skóre 0–100 podľa zľavy od 90d maxima, prepredanosti (RSI + Stochastic), pozície voči Bollingeru/EMA200 a „value zóny". Vyššie = väčšia zľava = vhodnejší moment na navýšenú DCA tranžu. <b>Nie je to predpoveď dna.</b></div></div>
+    <div class="card" style="margin-bottom:16px"><div class="card-header"><span class="card-title">🔥 Najlepšie DCA príležitosti teraz</span><span class="timestamp" id="dcaTs"></span></div><div id="dcaTop"><div class="ai-loading"><div class="ai-dot"></div><div class="ai-dot"></div><div class="ai-dot"></div><span id="dcaProg"></span></div></div></div>
+    <div class="section-title">Všetky coiny — DCA hodnotenie</div>
+    <div class="grid-auto" id="dcaGrid"></div>
+  </div>
+
+  <!-- PORTFOLIO (HODL / spot holdings) -->
+  <div class="tab-panel" id="tab-portfolio">
+    <div class="stats-row">
+      <div class="metric-card"><div class="metric-label">Hodnota holdingov</div><div class="metric-value" id="hValue">—</div></div>
+      <div class="metric-card"><div class="metric-label">Investované</div><div class="metric-value" id="hCost">—</div></div>
+      <div class="metric-card"><div class="metric-label">Nereal. P&L</div><div class="metric-value" id="hUnreal">—</div></div>
+      <div class="metric-card"><div class="metric-label">Výnos %</div><div class="metric-value" id="hPct">—</div></div>
+      <div class="metric-card"><div class="metric-label">Počet coinov</div><div class="metric-value" id="hCount">0</div></div>
+    </div>
+    <div class="trade-form">
+      <div class="section-title">➕ Pridať holding (spot — coin ktorý držíš)</div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Coin</label><select class="form-select" id="hSym"></select></div>
+        <div class="form-group"><label class="form-label">Množstvo</label><input class="form-input" id="hQty" type="number" step="any" placeholder="0,00"></div>
+        <div class="form-group"><label class="form-label">Priem. nákup. cena (€) — voliteľné</label><input class="form-input" id="hAvg" type="number" step="any" placeholder="pre výpočet P&L"></div>
+        <div class="form-group"><label class="form-label">Dátum</label><input class="form-input" id="hDate" type="date"></div>
+      </div>
+      <div class="form-group" style="margin-bottom:12px"><label class="form-label">Poznámka</label><textarea class="note-input" id="hNote" rows="2" placeholder="napr. dlhodobý hold, kúpené na dne…"></textarea></div>
+      <div class="form-actions"><button class="btn-secondary" onclick="clearHolding()">Vymazať</button><button class="btn-primary" onclick="addHolding()">Uložiť holding →</button></div>
+    </div>
+    <div class="grid-65-35">
+      <div class="card"><div class="card-header"><span class="card-title">Moje holdingy</span><button class="btn-secondary" style="font-size:11px;padding:4px 10px" onclick="renderHoldings()">↻</button></div><div style="overflow-x:auto" id="holdingsTable"></div></div>
+      <div class="card"><div class="card-header"><span class="card-title">Alokácia</span></div><div style="position:relative;height:240px"><canvas id="allocChart"></canvas></div></div>
+    </div>
+  </div>
+
+  <!-- ALERTS -->
+  <div class="tab-panel" id="tab-alerts">
+    <div class="card" style="margin-bottom:16px">
+      <div class="section-title">🔔 Nový cenový alert</div>
+      <div class="form-row-3"><div class="form-group"><label class="form-label">Coin</label><select class="form-select" id="al_sym"></select></div><div class="form-group"><label class="form-label">Podmienka</label><select class="form-select" id="al_dir"><option value="above">Cena nad ▲</option><option value="below">Cena pod ▼</option></select></div><div class="form-group"><label class="form-label">Cena (€)</label><input class="form-input" id="al_price" type="number" step="any" placeholder="0,00"></div></div>
+      <div class="form-actions"><button class="btn-secondary" onclick="requestNotif()">🔕 Povoliť notifikácie</button><button class="btn-primary" onclick="addAlert()">Pridať alert →</button></div>
+      <div style="font-size:11px;color:var(--text3);margin-top:8px">Kontrolujú sa pri každej aktualizácii (manuálne tlačidlo alebo auto-refresh každých 5 min).</div>
+    </div>
+    <div class="card"><div class="card-header"><span class="card-title">Aktívne alerty</span></div><div id="alertsList"><div style="color:var(--text3);font-size:13px;padding:8px">Žiadne alerty.</div></div></div>
+  </div>
+
+  <!-- TRADES (FUTURES long/short journal) -->
+  <div class="tab-panel" id="tab-trades">
+    <div class="stats-row">
+      <div class="metric-card"><div class="metric-label">Celkový profit</div><div class="metric-value" id="fTotal">—</div></div>
+      <div class="metric-card"><div class="metric-label">Počet pozícií</div><div class="metric-value" id="fCount">0</div></div>
+      <div class="metric-card"><div class="metric-label">Win rate</div><div class="metric-value" id="fWin">—</div></div>
+      <div class="metric-card"><div class="metric-label">Najlepší</div><div class="metric-value" id="fBest">—</div></div>
+      <div class="metric-card"><div class="metric-label">Najhorší</div><div class="metric-value" id="fWorst">—</div></div>
+    </div>
+    <div class="grid-65-35">
+      <div class="card"><div class="card-header"><span class="card-title">Equity curve (kumulatívny profit)</span></div><div style="position:relative;height:220px"><canvas id="equityChart"></canvas></div></div>
+      <div class="card"><div class="card-header"><span class="card-title">Long vs Short</span></div><div class="stat-grid" id="lsStats" style="grid-template-columns:1fr 1fr"></div></div>
+    </div>
+    <div class="trade-form">
+      <div class="section-title">➕ Pridať futures pozíciu</div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Coin</label><select class="form-select" id="tSymbol"></select></div>
+        <div class="form-group"><label class="form-label">Smer</label><select class="form-select" id="tSide"><option value="LONG">LONG ▲</option><option value="SHORT">SHORT ▼</option></select></div>
+        <div class="form-group"><label class="form-label">Dátum</label><input class="form-input" id="tDate" type="date"></div>
+        <div class="form-group"><label class="form-label">Profit / strata (€)</label><input class="form-input" id="tProfit" type="number" step="any" placeholder="napr. 125 alebo -40"></div>
+      </div>
+      <div class="form-group" style="margin-bottom:12px"><label class="form-label">Poznámka (journal)</label><textarea class="note-input" id="tNote" rows="2" placeholder="setup, páka, emócie, dôvod vstupu/výstupu…"></textarea></div>
+      <div class="form-actions"><button class="btn-secondary" onclick="clearForm()">Vymazať</button><button class="btn-primary" onclick="addTrade()">Uložiť pozíciu →</button></div>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="card-title">Moje pozície</span><div style="display:flex;gap:8px;align-items:center"><input class="form-input" id="filterSymbol" placeholder="Filter symbol…" style="width:130px;padding:4px 8px;font-size:12px" oninput="renderTradeTable()"><button class="btn-secondary" style="font-size:11px;padding:4px 10px" onclick="exportTrades()">⬇ CSV</button></div></div>
+      <div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px 14px;margin-bottom:14px;display:flex;flex-wrap:wrap;align-items:center;gap:10px;justify-content:space-between">
+        <div style="font-size:12px;color:var(--text2);line-height:1.5">🔒 <b>Záloha dát.</b> <span id="saveStatus" style="color:var(--green)">Uložené</span>. Záloha obsahuje futures pozície aj holdingy. Sťahuj si JSON — obnoviteľné aj na inom PC.</div>
+        <div style="display:flex;gap:8px">
+          <button class="btn-secondary" style="font-size:12px" onclick="exportBackup()">⬇ Stiahnuť zálohu</button>
+          <button class="btn-primary" style="font-size:12px" onclick="document.getElementById('importFile').click()">⬆ Obnoviť zo zálohy</button>
+          <input type="file" id="importFile" accept="application/json,.json" style="display:none" onchange="importBackup(event)">
+        </div>
+      </div>
+      <div style="overflow-x:auto"><table class="trade-table"><thead><tr><th>Dátum</th><th>Coin</th><th>Smer</th><th>Profit</th><th>Poznámka</th><th></th></tr></thead><tbody id="tradeTableBody"></tbody></table></div>
+    </div>
+  </div>
+
+</main>
+</div>
+
+<!-- CHART MODAL -->
+<div class="modal-overlay" id="chartModal" onclick="if(event.target===this)closeChart()">
+  <div class="modal">
+    <div class="modal-head"><div><div id="modalCoinName" style="font-size:16px;font-weight:600"></div><div id="modalCoinPrice" style="font-family:var(--mono);color:var(--text2);font-size:13px"></div></div><button class="modal-close" onclick="closeChart()">✕</button></div>
+    <div class="tf-btns" id="tfBtns"></div>
+    <div class="modal-chart-wrap"><canvas id="modalChart"></canvas></div>
+    <div class="verdict-box" id="tfVerdict"></div>
+    <div class="card-title" style="margin-bottom:8px">Multi-timeframe konfluencia</div>
+    <div class="mtf-row" id="mtfRow"></div>
+    <div class="ind-grid" id="modalIndicators" style="grid-template-columns:repeat(4,1fr)"></div>
+  </div>
+</div>
+
+<script>
+// ============================================================ STATE
+let eurusd=1.08, market={}, klineCache={}, indCache={};
+let modalChartObj=null, allocChartObj=null, equityChartObj=null, modalSym=null, modalTF='1d';
+let COINS=[], PAIR2SYM={}, SYM2COIN={};
+
+const STABLES=new Set(['USDC','FDUSD','TUSD','BUSD','USDP','DAI','EURI','AEUR','EUR','GBP','TRY','BRL','ARS','PLN','RON','ZAR','JPY','MXN','COP','UAH','IDRT','NGN','USDS','USTC','PAXG','WBTC','USD1','XUSD','BFUSD']);
+const META={BTC:{n:'Bitcoin',c:'#f7931a'},ETH:{n:'Ethereum',c:'#627eea'},BNB:{n:'BNB',c:'#f3ba2f'},SOL:{n:'Solana',c:'#9945ff'},XRP:{n:'XRP',c:'#3b82f6'},ADA:{n:'Cardano',c:'#0033ad'},DOGE:{n:'Dogecoin',c:'#c2a633'},AVAX:{n:'Avalanche',c:'#e84142'},TRX:{n:'TRON',c:'#ff060a'},LINK:{n:'Chainlink',c:'#2a5ada'},DOT:{n:'Polkadot',c:'#e6007a'},TON:{n:'Toncoin',c:'#0098ea'},SHIB:{n:'Shiba Inu',c:'#ffa409'},LTC:{n:'Litecoin',c:'#bfbbbb'},BCH:{n:'Bitcoin Cash',c:'#8dc351'},NEAR:{n:'NEAR',c:'#00ec97'},UNI:{n:'Uniswap',c:'#ff007a'},APT:{n:'Aptos',c:'#06b6d4'},ICP:{n:'Internet Computer',c:'#ec4899'},ATOM:{n:'Cosmos',c:'#6f7390'},XLM:{n:'Stellar',c:'#7d00ff'},FIL:{n:'Filecoin',c:'#0090ff'},HBAR:{n:'Hedera',c:'#222'},VET:{n:'VeChain',c:'#15bdff'},INJ:{n:'Injective',c:'#00d2ff'},OP:{n:'Optimism',c:'#ff0420'},ARB:{n:'Arbitrum',c:'#28a0f0'},AAVE:{n:'Aave',c:'#b6509e'},SUI:{n:'Sui',c:'#4da2ff'},SEI:{n:'Sei',c:'#9a1b1b'},PEPE:{n:'Pepe',c:'#4caf50'},WIF:{n:'dogwifhat',c:'#c79b6e'},TIA:{n:'Celestia',c:'#7b2bf9'},RENDER:{n:'Render',c:'#cf1011'},IMX:{n:'Immutable',c:'#0d8ce6'},STX:{n:'Stacks',c:'#5546ff'},FET:{n:'Artificial SI',c:'#1c2c4c'},GRT:{n:'The Graph',c:'#6f4cff'},ALGO:{n:'Algorand',c:'#000'},LDO:{n:'Lido DAO',c:'#00a3ff'},FTM:{n:'Fantom',c:'#1969ff'},JUP:{n:'Jupiter',c:'#c8f284'},WLD:{n:'Worldcoin',c:'#000'},ORDI:{n:'ORDI',c:'#f7931a'},BONK:{n:'Bonk',c:'#f7a900'},FLOKI:{n:'Floki',c:'#f0a' },ENA:{n:'Ethena',c:'#444'}};
+const TIMEFRAMES=[{key:'1m',iv:'1m',limit:500,lbl:'1m'},{key:'5m',iv:'5m',limit:500,lbl:'5m'},{key:'15m',iv:'15m',limit:500,lbl:'15m'},{key:'1h',iv:'1h',limit:500,lbl:'1h'},{key:'4h',iv:'4h',limit:500,lbl:'4h'},{key:'1d',iv:'1d',limit:365,lbl:'1D'},{key:'1w',iv:'1w',limit:300,lbl:'1T'}];
+
+function nameFor(s){return META[s]?META[s].n:s;}
+function colorFor(s){if(META[s])return META[s].c;let h=0;for(const ch of s)h=(h*31+ch.charCodeAt(0))%360;return 'hsl('+h+',58%,55%)';}
+function buildCoins(syms){COINS=syms.map(s=>({sym:s,pair:s+'USDT',name:nameFor(s),color:colorFor(s)}));PAIR2SYM=Object.fromEntries(COINS.map(c=>[c.pair,c.sym]));SYM2COIN=Object.fromEntries(COINS.map(c=>[c.sym,c]));populateDropdowns();}
+function populateDropdowns(){['tSymbol','hSym','al_sym'].forEach(id=>{const el=document.getElementById(id);if(!el)return;const cur=el.value;el.innerHTML='';COINS.forEach(c=>{const o=document.createElement('option');o.value=c.sym;o.textContent=c.sym+(id==='al_sym'?'':' — '+c.name);el.appendChild(o);});if(id!=='al_sym'){const o=document.createElement('option');o.value='OTHER';o.textContent='Iné…';el.appendChild(o);}if(cur)el.value=cur;});}
+
+// ---- persisted data ----
+let holdings=JSON.parse(localStorage.getItem('kryptoHoldings')||'null')||[];
+let futures=JSON.parse(localStorage.getItem('kryptoFutures')||'null')||[];
+let alerts=JSON.parse(localStorage.getItem('kryptoAlerts')||'[]');
+// migrate legacy single trade log (spot-style) into holdings(open)+futures(closed)
+(function migrate(){
+  if(localStorage.getItem('kryptoHoldings')||localStorage.getItem('kryptoFutures'))return;
+  let legacy=[];try{legacy=JSON.parse(localStorage.getItem('kryptoTrades_v2')||localStorage.getItem('kryptoTrades_backup')||'[]');}catch(e){}
+  if(!Array.isArray(legacy)||!legacy.length)return;
+  legacy.forEach(t=>{
+    if(t.exit){const pnl=t.type==='BUY'?(t.exit-t.entry)*t.amount:(t.entry-t.exit)*t.amount;futures.push({id:t.id||Date.now()+Math.floor(Math.random()*9999),sym:t.sym,side:t.type==='BUY'?'LONG':'SHORT',date:t.date,profit:+pnl.toFixed(2),note:(t.note||'')+' (migrované)'});}
+    else{holdings.push({id:t.id||Date.now()+Math.floor(Math.random()*9999),sym:t.sym,qty:t.amount,avg:t.entry,date:t.date,note:(t.note||'')+' (migrované)'});}
+  });
+  saveHoldings();saveFutures();
+})();
+
+// ============================================================ FORMAT
+function eur(x,fd){if(x==null||isNaN(x))return '—';let d=fd!=null?fd:(x>=1000?2:x>=1?2:x>=0.01?4:8);return new Intl.NumberFormat('sk-SK',{minimumFractionDigits:d,maximumFractionDigits:d}).format(x)+' €';}
+function num(x,d){if(x==null||isNaN(x))return '—';return new Intl.NumberFormat('sk-SK',{minimumFractionDigits:d||0,maximumFractionDigits:d||0}).format(x);}
+function pct(x){if(x==null||isNaN(x))return '—';return new Intl.NumberFormat('sk-SK',{minimumFractionDigits:2,maximumFractionDigits:2}).format(x)+' %';}
+function toEur(u){return u/eurusd;}
+function updateDate(){const n=new Date();document.getElementById('dateBadge').textContent=n.toLocaleDateString('sk-SK',{weekday:'short',day:'2-digit',month:'2-digit',year:'numeric'})+' '+n.toLocaleTimeString('sk-SK',{hour:'2-digit',minute:'2-digit'});}
+updateDate();setInterval(updateDate,30000);
+document.getElementById('tDate').value=new Date().toISOString().split('T')[0];
+document.getElementById('hDate').value=new Date().toISOString().split('T')[0];
+
+// ============================================================ INDICATORS
+function ema(v,p){const k=2/(p+1);const out=new Array(v.length).fill(null);if(v.length<p)return out;let pr=v.slice(0,p).reduce((a,b)=>a+b,0)/p;out[p-1]=pr;for(let i=p;i<v.length;i++){pr=v[i]*k+pr*(1-k);out[i]=pr;}return out;}
+function rsi(c,p=14){if(c.length<p+1)return null;let g=0,l=0;for(let i=1;i<=p;i++){const d=c[i]-c[i-1];if(d>=0)g+=d;else l-=d;}let ag=g/p,al=l/p;for(let i=p+1;i<c.length;i++){const d=c[i]-c[i-1];const gg=d>0?d:0,ll=d<0?-d:0;ag=(ag*(p-1)+gg)/p;al=(al*(p-1)+ll)/p;}if(al===0)return 100;return 100-100/(1+ag/al);}
+function macd(c){const e12=ema(c,12),e26=ema(c,26);const line=c.map((_,i)=>(e12[i]!=null&&e26[i]!=null)?e12[i]-e26[i]:null);const valid=line.filter(v=>v!=null);const sigArr=ema(valid,9);const sig=sigArr[sigArr.length-1];const m=line[line.length-1];return {macd:m,signal:sig,hist:(m!=null&&sig!=null)?m-sig:null};}
+function atr(h,l,c,p=14){if(c.length<p+1)return null;let t=[];for(let i=1;i<c.length;i++)t.push(Math.max(h[i]-l[i],Math.abs(h[i]-c[i-1]),Math.abs(l[i]-c[i-1])));let a=t.slice(0,p).reduce((x,y)=>x+y,0)/p;for(let i=p;i<t.length;i++)a=(a*(p-1)+t[i])/p;return a;}
+function bollinger(c,p=20){if(c.length<p)return{mid:null,up:null,low:null};const s=c.slice(-p);const mid=s.reduce((a,b)=>a+b,0)/p;const std=Math.sqrt(s.reduce((a,b)=>a+(b-mid)**2,0)/p);return{mid,up:mid+2*std,low:mid-2*std,std};}
+function stochastic(h,l,c,p=14){if(c.length<p)return null;const hh=Math.max(...h.slice(-p)),ll=Math.min(...l.slice(-p));if(hh===ll)return 50;return (c[c.length-1]-ll)/(hh-ll)*100;}
+function computeIndicators(kl){const c=kl.map(k=>+k[4]),h=kl.map(k=>+k[2]),l=kl.map(k=>+k[3]),vol=kl.map(k=>+k[5]);const price=c[c.length-1];const e20=ema(c,20),e50=ema(c,50),e200=ema(c,200);const boll=bollinger(c,20);const w=Math.min(90,l.length);const ema50=e50[e50.length-1],ema50prev=e50[e50.length-6];const slope=(ema50!=null&&ema50prev!=null)?(ema50-ema50prev)/ema50prev*100:0;const avgVol=vol.slice(-20).reduce((a,b)=>a+b,0)/Math.min(20,vol.length);const volRatio=avgVol?vol[vol.length-1]/avgVol:1;const ema200=e200[e200.length-1];return {price,ema20:e20[e20.length-1],ema50,ema200,emaSlope:slope,rsi:rsi(c,14),macd:macd(c),atr:atr(h,l,c,14),stoch:stochastic(h,l,c,14),volRatio,bollUp:boll.up,bollLow:boll.low,bollMid:boll.mid,pctFromEma200:ema200?(price-ema200)/ema200*100:null,sup1:Math.min(...l.slice(-Math.min(30,l.length))),res1:Math.max(...h.slice(-Math.min(30,h.length))),sup2:Math.min(...l.slice(-w)),res2:Math.max(...h.slice(-w)),high90:Math.max(...h.slice(-w)),low90:Math.min(...l.slice(-w)),closes:c};}
+
+// ---- improved signal scoring ----
+function scoreSignal(ind,chg24){let s=0;const reasons=[];
+  if(ind.ema50!=null&&ind.ema200!=null){if(ind.price>ind.ema50&&ind.ema50>ind.ema200){s+=28;reasons.push('nad EMA50 aj EMA200 (uptrend)');}else if(ind.price>ind.ema50){s+=14;reasons.push('nad EMA50');}else if(ind.price<ind.ema50&&ind.ema50<ind.ema200){s-=28;reasons.push('pod EMA50 aj EMA200 (downtrend)');}else if(ind.price<ind.ema50){s-=14;reasons.push('pod EMA50');}}else if(ind.ema50!=null){if(ind.price>ind.ema50)s+=14;else s-=14;}
+  if(ind.emaSlope>0.3){s+=8;reasons.push('EMA50 stúpa');}else if(ind.emaSlope<-0.3){s-=8;reasons.push('EMA50 klesá');}
+  if(ind.rsi!=null){if(ind.rsi<30){s+=20;reasons.push('RSI prepredané ('+Math.round(ind.rsi)+')');}else if(ind.rsi<45)s+=8;else if(ind.rsi>70){s-=20;reasons.push('RSI prekúpené ('+Math.round(ind.rsi)+')');}else if(ind.rsi>55)s-=5;}
+  if(ind.macd&&ind.macd.hist!=null){if(ind.macd.hist>0&&ind.macd.macd>0){s+=18;reasons.push('MACD bullish nad nulou');}else if(ind.macd.hist>0){s+=10;reasons.push('MACD krížil hore');}else{s-=14;reasons.push('MACD bearish');}}
+  if(ind.stoch!=null){if(ind.stoch<20){s+=10;reasons.push('Stochastic prepredaný');}else if(ind.stoch>80){s-=10;reasons.push('Stochastic prekúpený');}}
+  if(ind.volRatio>1.5){if(chg24>=0){s+=8;reasons.push('rast s vyšším objemom');}else{s-=8;reasons.push('pokles s vyšším objemom');}}
+  const range=ind.res1-ind.sup1;if(range>0){const pos=(ind.price-ind.sup1)/range;if(pos<0.25){s+=12;reasons.push('blízko podpory');}else if(pos>0.8){s-=12;reasons.push('blízko odporu');}}
+  if(ind.pctFromEma200!=null&&ind.pctFromEma200>30){s-=8;reasons.push('cena ďaleko nad EMA200 (riziko korekcie)');}
+  if(chg24>10){s-=6;reasons.push('prudký 24h výkyv');}
+  s=Math.max(-100,Math.min(100,Math.round(s)));let label,strength;if(s>=40){label='BUY';strength=s>=70?'Silný':'Stredný';}else if(s<=-40){label='SELL';strength=s<=-70?'Silný':'Stredný';}else{label='WAIT';strength=Math.abs(s)<15?'Slabý':'Stredný';}return {score:s,label,strength,reasons};}
+
+// ---- improved DCA scoring ----
+function dcaSignal(ind,chg){let s=0;const notes=[];const dd=ind.high90>0?(ind.high90-ind.price)/ind.high90*100:0;
+  if(ind.rsi!=null){if(ind.rsi<25){s+=38;notes.push('RSI extrémne prepredané ('+Math.round(ind.rsi)+')');}else if(ind.rsi<30){s+=28;notes.push('RSI prepredané ('+Math.round(ind.rsi)+')');}else if(ind.rsi<38){s+=16;notes.push('nízke RSI ('+Math.round(ind.rsi)+')');}else if(ind.rsi<45)s+=7;}
+  if(ind.stoch!=null&&ind.stoch<20){s+=8;notes.push('Stochastic prepredaný');}
+  if(dd>35){s+=26;notes.push('zľava '+Math.round(dd)+'% od 90d maxima');}else if(dd>22){s+=19;notes.push('zľava '+Math.round(dd)+'%');}else if(dd>12){s+=12;notes.push('zľava '+Math.round(dd)+'%');}else if(dd>6)s+=5;
+  if(ind.bollLow!=null&&ind.price<=ind.bollLow){s+=14;notes.push('pod dolným Bollingerom');}
+  if(ind.pctFromEma200!=null){if(ind.pctFromEma200<-15){s+=18;notes.push('výrazne pod EMA200 ('+Math.round(ind.pctFromEma200)+'%)');}else if(ind.pctFromEma200<0){s+=10;notes.push('pod EMA200');}}
+  const range=ind.high90-ind.low90;if(range>0){const posR=(ind.price-ind.low90)/range;if(posR<0.33){s+=10;notes.push('spodná tretina 90d rozpätia (value zóna)');}}
+  s=Math.min(100,Math.round(s));let tier;
+  if(s>=65)tier={label:'SILNÉ DNO',color:'var(--green)',bg:'var(--green-bg)',mult:'2–3× tranža',advice:'Výrazná zľava + viacero prepredaní. Zváž navýšenú DCA tranžu — rozloženú po častiach, nie naraz.'};
+  else if(s>=45)tier={label:'DOBRÁ DCA',color:'#22c55e',bg:'var(--green-bg)',mult:'1.5–2× tranža',advice:'Dobrá príležitosť. Štandardná až mierne navýšená tranža.'};
+  else if(s>=25)tier={label:'MIERNA ZĽAVA',color:'var(--amber)',bg:'var(--amber-bg)',mult:'1× tranža',advice:'Pokračuj v plánovanom DCA bez navyšovania.'};
+  else tier={label:'BEZ ZĽAVY',color:'var(--text3)',bg:'var(--bg4)',mult:'0.5× / čakaj',advice:'Cena vysoko / prekúpená. Menšie tranže alebo počkaj na korekciu.'};
+  return {score:s,drawdown:dd,tier,notes};}
+
+// ============================================================ FETCH
+async function mapLimit(arr,limit,fn,onProg){let i=0,done=0;const out=new Array(arr.length);async function w(){while(i<arr.length){const idx=i++;try{out[idx]=await fn(arr[idx],idx);}catch(e){out[idx]=null;}done++;if(onProg)onProg(done,arr.length);}}await Promise.all(Array.from({length:Math.min(limit,arr.length)},w));return out;}
+async function fetchAllTickers(){const r=await fetch('https://api.binance.com/api/v3/ticker/24hr');if(!r.ok)throw new Error('tickers');return r.json();}
+async function fetchEurUsd(){try{const r=await fetch('https://api.binance.com/api/v3/ticker/price?symbol=EURUSDT');const d=await r.json();return +d.price;}catch(e){return 1.08;}}
+async function fetchKlines(pair,iv='1d',limit=250){const key=pair+'_'+iv+'_'+limit;if(klineCache[key])return klineCache[key];const r=await fetch(`https://api.binance.com/api/v3/klines?symbol=${pair}&interval=${iv}&limit=${limit}`);if(!r.ok)throw new Error('klines');const d=await r.json();klineCache[key]=d;return d;}
+async function fetchFearGreed(){try{const r=await fetch('https://api.alternative.me/fng/?limit=1');const d=await r.json();return d.data[0];}catch(e){return null;}}
+async function fetchPriceUsdt(sym){try{const r=await fetch('https://api.binance.com/api/v3/ticker/price?symbol='+sym+'USDT');const d=await r.json();return d.price?+d.price:null;}catch(e){return null;}}
+
+function buildTop100(tickers){
+  const list=tickers.filter(t=>t.symbol.endsWith('USDT')).map(t=>({sym:t.symbol.slice(0,-4),t})).filter(o=>!STABLES.has(o.sym)&&!/(UPUSDT|DOWNUSDT)$/.test(o.t.symbol)&&o.sym.length>0&&!o.sym.endsWith('UP')&&!o.sym.endsWith('DOWN')||['JUP'].includes(o.sym)).filter(o=>!STABLES.has(o.sym));
+  // dedupe + sort by quote volume
+  const seen=new Set();const clean=[];
+  list.sort((a,b)=>(+b.t.quoteVolume)-(+a.t.quoteVolume)).forEach(o=>{if(seen.has(o.sym))return;seen.add(o.sym);clean.push(o);});
+  return clean.slice(0,100);
+}
+
+// ============================================================ OVERVIEW
+function renderMetrics(fg){const btc=market['BTC'],eth=market['ETH'];const chgs=Object.values(market).map(t=>+t.priceChangePercent);const avg=chgs.length?chgs.reduce((a,b)=>a+b,0)/chgs.length:0;const ch=t=>{if(!t)return'';const c=+t.priceChangePercent;return(c>=0?'<span class="up">▲ ':'<span class="down">▼ ')+pct(Math.abs(c)).replace(' %','')+' %</span>';};const fgVal=fg?parseInt(fg.value):null;const fgC=fgVal==null?'var(--text3)':fgVal<25?'var(--red)':fgVal<50?'var(--amber)':'var(--green)';document.getElementById('metricCards').innerHTML=`<div class="metric-card"><div class="metric-label">Bitcoin (BTC)</div><div class="metric-value">${btc?eur(toEur(+btc.lastPrice)):'—'}</div><div class="metric-change">${ch(btc)}</div></div><div class="metric-card"><div class="metric-label">Ethereum (ETH)</div><div class="metric-value">${eth?eur(toEur(+eth.lastPrice)):'—'}</div><div class="metric-change">${ch(eth)}</div></div><div class="metric-card"><div class="metric-label">Priem. zmena 24h</div><div class="metric-value ${avg>=0?'up':'down'}" style="font-size:20px">${avg>=0?'+':''}${pct(avg)}</div><div class="metric-change" style="color:var(--text3)">naprieč ${chgs.length} coinmi</div></div><div class="metric-card"><div class="metric-label">Fear & Greed</div><div class="metric-value" style="color:${fgC}">${fgVal??'—'}</div><div class="metric-change" style="color:${fgC}">${fg?fg.value_classification:'nedostupné'}</div></div>`;}
+function renderHeatmap(){const cells=COINS.slice(0,60).map(c=>{const t=market[c.sym];if(!t)return'';const chg=+t.priceChangePercent;const a=Math.min(1,Math.abs(chg)/8);const bg=chg>=0?`rgba(34,197,94,${0.22+a*0.6})`:`rgba(239,68,68,${0.22+a*0.6})`;return `<div class="heat-cell" style="background:${bg}" onclick="openChart('${c.sym}')"><div class="heat-sym">${c.sym}</div><div class="heat-chg">${chg>=0?'+':''}${chg.toFixed(1)}%</div></div>`;}).join('');document.getElementById('heatmap').innerHTML=cells||'<div style="color:var(--text3);font-size:12px">—</div>';}
+function renderCoinList(){const q=(document.getElementById('coinSearch')?.value||'').trim().toUpperCase();document.getElementById('priceTimestamp').textContent='aktualizované '+new Date().toLocaleTimeString('sk-SK',{hour:'2-digit',minute:'2-digit'});const list=q?COINS.filter(c=>c.sym.includes(q)||c.name.toUpperCase().includes(q)):COINS;document.getElementById('coinList').innerHTML=list.map((c,i)=>{const t=market[c.sym];if(!t)return'';const chg=+t.priceChangePercent;const cls=chg>=0?'up':'down';const ar=chg>=0?'▲':'▼';const rank=COINS.indexOf(c)+1;return `<div class="coin-row" onclick="openChart('${c.sym}')"><div class="coin-left"><span class="coin-rank">${rank}</span><div class="coin-icon" style="background:${c.color}22;color:${c.color}">${c.sym.slice(0,4)}</div><div><div class="coin-name">${c.name}</div><div class="coin-sym">${c.sym}</div></div></div><div class="coin-right"><div><div class="coin-price">${eur(toEur(+t.lastPrice))}</div><div class="metric-change ${cls}" style="justify-content:flex-end">${ar} ${pct(Math.abs(chg)).replace(' %','')} %</div></div><span class="chart-hint">📈</span></div></div>`;}).join('')||'<div style="color:var(--text3);font-size:13px;padding:16px;text-align:center">Nič nenájdené.</div>';}
+function renderFearGreed(fg){if(!fg){document.getElementById('fearGreedWidget').innerHTML='<div style="font-size:12px;color:var(--text3);padding:8px">Index nedostupný.</div>';return;}const v=parseInt(fg.value),label=fg.value_classification;const color=v<25?'#ef4444':v<50?'#f59e0b':'#22c55e';document.getElementById('fearGreedWidget').innerHTML=`<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:4px"><span style="font-size:32px;font-weight:700;font-family:var(--mono);color:${color}">${v}</span><span style="font-size:13px;font-weight:600;color:${color}">${label}</span></div><div class="gauge-bar"><div class="gauge-cursor" style="left:${v}%"></div></div><div class="gauge-labels"><span>Strach</span><span>Neutral</span><span>Chamtivosť</span></div>`;}
+function renderRelStrength(){const sorted=[...COINS].map(c=>({c,chg:market[c.sym]?+market[c.sym].priceChangePercent:null})).filter(x=>x.chg!=null).sort((a,b)=>b.chg-a.chg).slice(0,8);document.getElementById('rsWidget').innerHTML=sorted.map(({c,chg})=>{const cls=chg>=0?'up':'down';const w=Math.min(100,Math.abs(chg)*6);return `<div style="margin-bottom:6px"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px"><span style="color:var(--text2)">${c.sym}</span><span class="${cls}" style="font-family:var(--mono);font-weight:600">${chg>=0?'+':''}${pct(chg).replace(' %','')} %</span></div><div class="dom-bar"><div class="dom-fill" style="width:${w}%;background:${chg>=0?'var(--green)':'var(--red)'}"></div></div></div>`;}).join('');}
+function renderQuickIndicators(){[['BTC','btcIndicators'],['ETH','ethIndicators']].forEach(([sym,id])=>{const ind=indCache[sym];const el=document.getElementById(id);if(!el)return;if(!ind){el.innerHTML='<div class="error-msg" style="grid-column:1/-1">Nedostupné</div>';return;}el.innerHTML=`<div class="ind-item"><span class="ind-label">RSI (14)</span><span class="ind-val ${ind.rsi>70?'down':ind.rsi<30?'up':''}">${Math.round(ind.rsi)}</span></div><div class="ind-item"><span class="ind-label">Stochastic</span><span class="ind-val">${ind.stoch!=null?Math.round(ind.stoch):'—'}</span></div><div class="ind-item"><span class="ind-label">MACD</span><span class="ind-val" style="font-size:11px">${ind.macd.hist>0?'📈 Bull':'📉 Bear'}</span></div><div class="ind-item"><span class="ind-label">EMA 50</span><span class="ind-val" style="font-size:11px">${ind.price>ind.ema50?'✅ nad':'❌ pod'}</span></div><div class="ind-item"><span class="ind-label">EMA 200</span><span class="ind-val" style="font-size:11px">${ind.ema200&&ind.price>ind.ema200?'✅ nad':'❌ pod'}</span></div><div class="ind-item"><span class="ind-label">Objem vs priemer</span><span class="ind-val" style="font-size:11px">${ind.volRatio?ind.volRatio.toFixed(2)+'×':'—'}</span></div>`;});}
+
+// ============================================================ ANALYSIS
+function buildCoinAnalysis(sym){const ind=indCache[sym],t=market[sym];if(!ind||!t)return'Dáta nedostupné.';const chg=+t.priceChangePercent;const sig=scoreSignal(ind,chg);const trend=ind.price>ind.ema50&&ind.ema50>ind.ema200?'silný rastúci trend':ind.price>ind.ema50?'mierne rastúci trend':ind.ema50&&ind.price<ind.ema50&&ind.ema200&&ind.ema50<ind.ema200?'klesajúci trend':'neutrálny trend';const rt=ind.rsi>70?'prekúpené pásmo':ind.rsi<30?'prepredané pásmo':'neutrálne pásmo';return `${nameFor(sym)} je na ${eur(toEur(ind.price))} (${chg>=0?'+':''}${pct(chg)} 24h), ${trend}. RSI ${Math.round(ind.rsi)} — ${rt}, Stochastic ${ind.stoch!=null?Math.round(ind.stoch):'—'}. MACD ${ind.macd.hist>0?'bullish':'bearish'}, objem ${ind.volRatio>1.3?'nadpriemerný':ind.volRatio<0.7?'slabý':'priemerný'}. Podpora ~${eur(toEur(ind.sup1))}, odpor ~${eur(toEur(ind.res1))}. Skóre: <b style="color:${sig.score>=40?'var(--green)':sig.score<=-40?'var(--red)':'var(--amber)'}">${sig.score>0?'+':''}${sig.score}</b> → <b>${sig.label}</b>.`;}
+function marketRegime(){const inds=COINS.map(c=>indCache[c.sym]).filter(Boolean);if(!inds.length)return null;const aboveEma200=inds.filter(i=>i.ema200&&i.price>i.ema200).length/inds.length*100;const aboveEma50=inds.filter(i=>i.price>i.ema50).length/inds.length*100;const avgRsi=inds.reduce((a,i)=>a+(i.rsi||50),0)/inds.length;const btc=indCache['BTC'];const btcUp=btc&&btc.price>btc.ema50&&btc.ema50>btc.ema200;let label,color;const score=(aboveEma200>55?1:0)+(aboveEma50>55?1:0)+(avgRsi>52?1:0)+(btcUp?1:0);if(score>=3){label='RISK-ON (býčí)';color='var(--green)';}else if(score<=1){label='RISK-OFF (medvedí)';color='var(--red)';}else{label='NEUTRÁLNY';color='var(--amber)';}return {label,color,aboveEma200,aboveEma50,avgRsi,btcUp};}
+function renderAnalysis(){const b=indCache['BTC'],e=indCache['ETH'];if(!b){document.getElementById('analysisContent').innerHTML='<div class="error-msg">Skús Aktualizovať.</div>';return;}const chgs=Object.values(market).map(t=>+t.priceChangePercent);const avg=chgs.reduce((a,x)=>a+x,0)/chgs.length;const bull=chgs.filter(c=>c>0).length;const reg=marketRegime();document.getElementById('analysisTs').textContent='vypočítané '+new Date().toLocaleTimeString('sk-SK',{hour:'2-digit',minute:'2-digit'});document.getElementById('analysisContent').innerHTML=`${reg?`<div class="analysis-block" style="border-left:3px solid ${reg.color}"><div class="analysis-header"><span class="analysis-title">🧭 Trhový režim</span><span class="regime" style="background:${reg.color}22;color:${reg.color}">${reg.label}</span></div><div class="analysis-body">${Math.round(reg.aboveEma50)} % coinov je nad EMA50 a ${Math.round(reg.aboveEma200)} % nad EMA200 (dlhodobý trend). Priemerné RSI trhu je ${Math.round(reg.avgRsi)}. BTC je ${reg.btcUp?'v rastúcej štruktúre':'pod kľúčovými priemermi'}. ${reg.label.includes('RISK-ON')?'Prostredie praje nákupom a držaniu.':reg.label.includes('RISK-OFF')?'Opatrnosť — väčšina trhu je slabá, vhodné skôr na DCA než agresívne nákupy.':'Zmiešaný trh — vyberaj selektívne podľa jednotlivých coinov.'}</div></div>`:''}<div class="analysis-block" style="border-left:3px solid var(--accent)"><div class="analysis-header"><span class="analysis-title">📋 Zhrnutie dňa</span></div><div class="analysis-body">Z ${chgs.length} coinov je ${bull} v zelenom, priemer 24h ${avg>=0?'+':''}${pct(avg)}. BTC ${b.price>b.ema50?'nad':'pod'} EMA50, volatilita (ATR) ~${eur(toEur(b.atr))}.</div></div><div class="analysis-block" style="border-left:3px solid #f7931a"><div class="analysis-header"><span class="analysis-title">₿ Bitcoin</span></div><div class="analysis-body">${buildCoinAnalysis('BTC')}</div></div><div class="analysis-block" style="border-left:3px solid #627eea"><div class="analysis-header"><span class="analysis-title">Ξ Ethereum</span></div><div class="analysis-body">${buildCoinAnalysis('ETH')}</div></div><div class="analysis-block" style="background:var(--blue-bg);border:1px solid rgba(59,130,246,.15)"><div class="analysis-header"><span class="analysis-title" style="color:var(--blue)">🔭 Výhľad</span></div><div class="analysis-body">Ak BTC udrží ~${eur(toEur(b.sup1))}, krátkodobý výhľad ostáva ${b.price>b.ema50?'konštruktívny':'opatrný'}. Prielom ${eur(toEur(b.res1))} otvára priestor na rast.</div></div><div class="analysis-block" style="background:var(--red-bg);border:1px solid rgba(239,68,68,.15)"><div class="analysis-header"><span class="analysis-title" style="color:var(--red)">⚠ Upozornenie</span></div><div class="analysis-body">Automatický technický výpočet, nie investičné odporúčanie. Indikátory zaostávajú a nepredpovedajú správy. Používaj stop-loss a risk management.</div></div>`;const lvl=ind=>`<div style="margin-bottom:10px"><div style="font-size:10px;color:var(--green);text-transform:uppercase;margin-bottom:6px;font-weight:600">Podpory</div><div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border)"><span style="color:var(--text2)">S1 30d</span><span style="font-family:var(--mono);color:var(--green);font-weight:600">${eur(toEur(ind.sup1))}</span></div><div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border)"><span style="color:var(--text2)">S2 90d</span><span style="font-family:var(--mono);color:var(--green);font-weight:600">${eur(toEur(ind.sup2))}</span></div></div><div><div style="font-size:10px;color:var(--red);text-transform:uppercase;margin-bottom:6px;font-weight:600">Odpory</div><div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border)"><span style="color:var(--text2)">R1 30d</span><span style="font-family:var(--mono);color:var(--red);font-weight:600">${eur(toEur(ind.res1))}</span></div><div style="display:flex;justify-content:space-between;padding:6px 0"><span style="color:var(--text2)">R2 90d</span><span style="font-family:var(--mono);color:var(--red);font-weight:600">${eur(toEur(ind.res2))}</span></div></div>`;document.getElementById('btcLevels').innerHTML=lvl(b);if(e)document.getElementById('ethLevels').innerHTML=lvl(e);}
+
+// ============================================================ SIGNALS
+function renderSignals(){const rows=COINS.map(c=>{const ind=indCache[c.sym],t=market[c.sym];if(!ind||!t)return null;return{c,ind,t,sig:scoreSignal(ind,+t.priceChangePercent)};}).filter(Boolean);const buys=rows.filter(r=>r.sig.label==='BUY').sort((a,b)=>b.sig.score-a.sig.score).slice(0,12);const sells=rows.filter(r=>r.sig.label==='SELL').sort((a,b)=>a.sig.score-b.sig.score).slice(0,12);const waits=rows.filter(r=>r.sig.label==='WAIT').sort((a,b)=>b.sig.score-a.sig.score).slice(0,10);document.getElementById('buySignals').innerHTML=buys.length?buys.map(r=>`<div class="opp-card buy-opp"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px"><div class="opp-title">${r.c.sym}</div><span class="pill buy">BUY • +${r.sig.score}</span></div><div class="opp-body">${r.sig.reasons.slice(0,2).join('; ')||'priaznivé podmienky'}.</div><div class="opp-meta"><span class="opp-tag">Cena: ${eur(toEur(r.ind.price))}</span><span class="opp-tag">Cieľ: ${eur(toEur(r.ind.res1))}</span><span class="opp-tag">Stop: ${eur(toEur(r.ind.sup1))}</span><span class="opp-tag">${r.sig.strength}</span></div></div>`).join(''):'<div class="analysis-body" style="padding:8px">Žiadne jasné BUY signály.</div>';document.getElementById('avoidSignals').innerHTML=sells.length?sells.map(r=>`<div class="opp-card avoid"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px"><div class="opp-title">${r.c.sym}</div><span class="pill sell">AVOID • ${r.sig.score}</span></div><div class="opp-body">${r.sig.reasons.slice(0,2).join('; ')||'nepriaznivé podmienky'}.</div><div class="opp-meta"><span class="opp-tag">Cena: ${eur(toEur(r.ind.price))}</span><span class="opp-tag">RSI: ${Math.round(r.ind.rsi)}</span></div></div>`).join(''):'<div class="analysis-body" style="padding:8px">Žiadne varovania.</div>';document.getElementById('watchSignals').innerHTML=waits.length?waits.map(r=>`<div class="opp-card watch"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px"><div class="opp-title">${r.c.sym}</div><span class="pill wait">WATCH • ${r.sig.score>0?'+':''}${r.sig.score}</span></div><div class="opp-body">${r.ind.price>r.ind.ema50?'Nad EMA50':'Pod EMA50'}, RSI ${Math.round(r.ind.rsi)}.</div><div class="opp-meta"><span class="opp-tag">Trigger: prielom ${eur(toEur(r.ind.res1))}</span></div></div>`).join(''):'<div class="analysis-body" style="padding:8px">—</div>';document.getElementById('signalTs').textContent='vypočítané '+new Date().toLocaleTimeString('sk-SK',{hour:'2-digit',minute:'2-digit'});const pc=l=>l==='BUY'?'buy':l==='SELL'?'sell':'wait';document.getElementById('signalTable').innerHTML=`<table class="trade-table"><thead><tr><th>Symbol</th><th>Cena</th><th>Skóre</th><th>Signál</th><th>RSI</th><th>Stoch</th><th>vs EMA50</th></tr></thead><tbody>${rows.sort((a,b)=>b.sig.score-a.sig.score).map(r=>`<tr style="cursor:pointer" onclick="openChart('${r.c.sym}')"><td style="font-weight:600;font-family:var(--mono)">${r.c.sym}</td><td style="font-family:var(--mono)">${eur(toEur(r.ind.price))}</td><td style="font-family:var(--mono);font-weight:600;color:${r.sig.score>=40?'var(--green)':r.sig.score<=-40?'var(--red)':'var(--amber)'}">${r.sig.score>0?'+':''}${r.sig.score}</td><td><span class="pill ${pc(r.sig.label)}">${r.sig.label}</span></td><td style="font-family:var(--mono)">${Math.round(r.ind.rsi)}</td><td style="font-family:var(--mono)">${r.ind.stoch!=null?Math.round(r.ind.stoch):'—'}</td><td style="color:var(--text2)">${r.ind.price>r.ind.ema50?'nad ▲':'pod ▼'}</td></tr>`).join('')}</tbody></table>`;}
+
+// ============================================================ DCA
+function renderDca(){const rows=COINS.map(c=>{const ind=indCache[c.sym],t=market[c.sym];if(!ind||!t)return null;return{c,ind,dca:dcaSignal(ind,+t.priceChangePercent)};}).filter(Boolean).sort((a,b)=>b.dca.score-a.dca.score);document.getElementById('dcaTs').textContent='vypočítané '+new Date().toLocaleTimeString('sk-SK',{hour:'2-digit',minute:'2-digit'});const top=rows.filter(r=>r.dca.score>=45).slice(0,4);document.getElementById('dcaTop').innerHTML=top.length?top.map(r=>`<div class="opp-card buy-opp" style="margin-bottom:8px"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px"><div class="opp-title">${r.c.name} (${r.c.sym})</div><span class="dca-tier" style="background:${r.dca.tier.bg};color:${r.dca.tier.color}">${r.dca.tier.label} • ${r.dca.score}</span></div><div class="opp-body">${r.dca.tier.advice} <b>Odporúčaná tranža: ${r.dca.tier.mult}.</b></div><div class="opp-meta">${r.dca.notes.map(n=>`<span class="opp-tag">${n}</span>`).join('')}</div></div>`).join(''):'<div class="analysis-body" style="padding:8px">Momentálne žiadny coin nie je vo výraznej zľave. Pokračuj v plánovanom DCA štandardnými tranžami.</div>';document.getElementById('dcaGrid').innerHTML=rows.map(r=>`<div class="card" style="cursor:pointer" onclick="openChart('${r.c.sym}')"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><div style="display:flex;align-items:center;gap:8px"><div class="coin-icon" style="background:${r.c.color}22;color:${r.c.color}">${r.c.sym.slice(0,4)}</div><div><div style="font-weight:600;font-size:13px">${r.c.sym}</div><div style="font-size:11px;color:var(--text3)">${eur(toEur(r.ind.price))}</div></div></div><span class="dca-tier" style="background:${r.dca.tier.bg};color:${r.dca.tier.color}">${r.dca.score}</span></div><div style="display:flex;align-items:center;gap:6px;margin-bottom:8px"><span class="dca-tier" style="background:${r.dca.tier.bg};color:${r.dca.tier.color}">${r.dca.tier.label}</span><span style="font-size:11px;color:var(--text3)">zľava ${Math.round(r.dca.drawdown)}% • RSI ${Math.round(r.ind.rsi)}</span></div><div class="dom-bar"><div class="dom-fill" style="width:${r.dca.score}%;background:${r.dca.tier.color}"></div></div><div style="font-size:11px;color:var(--text2);line-height:1.5;margin-top:8px">${r.dca.tier.advice}</div></div>`).join('');}
+
+// ============================================================ HOLDINGS (portfolio / spot HODL)
+function saveHoldings(){try{localStorage.setItem('kryptoHoldings',JSON.stringify(holdings));setSaveStatus('Uložené ✓','var(--green)');}catch(e){setSaveStatus('⚠ Ukladanie zlyhalo','var(--red)');}}
+function addHolding(){let sym=document.getElementById('hSym').value;if(sym==='OTHER'){sym=(prompt('Zadaj symbol:')||'').trim().toUpperCase();if(!sym)return;}const qty=parseFloat(document.getElementById('hQty').value);const avg=parseFloat(document.getElementById('hAvg').value)||null;const date=document.getElementById('hDate').value;const note=document.getElementById('hNote').value.trim();if(!sym||!qty){alert('Vyplň coin a množstvo.');return;}holdings.unshift({id:Date.now(),sym,qty,avg,date,note});saveHoldings();renderHoldings();clearHolding();}
+function deleteHolding(id){if(!confirm('Odstrániť tento holding?'))return;holdings=holdings.filter(h=>h.id!==id);saveHoldings();renderHoldings();}
+function clearHolding(){['hQty','hAvg','hNote'].forEach(id=>document.getElementById(id).value='');document.getElementById('hDate').value=new Date().toISOString().split('T')[0];document.getElementById('hSym').selectedIndex=0;}
+async function renderHoldings(){
+  // ensure price for each holding symbol
+  for(const h of holdings){if(!market[h.sym]){const px=await fetchPriceUsdt(h.sym);if(px!=null)market[h.sym]={lastPrice:px,priceChangePercent:0};}}
+  let value=0,cost=0;const aggBySym={};
+  const rows=holdings.map(h=>{const live=market[h.sym]?toEur(+market[h.sym].lastPrice):null;const avgEur=h.avg!=null?toEur(h.avg):null;const val=live!=null?live*h.qty:0;const cst=avgEur!=null?avgEur*h.qty:0;value+=val;cost+=cst;if(live!=null){aggBySym[h.sym]=(aggBySym[h.sym]||0)+val;}const u=(live!=null&&avgEur!=null)?(live-avgEur)*h.qty:null;return{...h,live,avgEur,val,cst,u};});
+  const unreal=rows.reduce((a,r)=>a+(r.u||0),0);
+  document.getElementById('hValue').textContent=eur(value);
+  document.getElementById('hCost').textContent=cost>0?eur(cost):'—';
+  document.getElementById('hUnreal').innerHTML=cost>0?`<span class="${unreal>=0?'up':'down'}">${unreal>=0?'+':''}${eur(unreal)}</span>`:'—';
+  document.getElementById('hPct').innerHTML=cost>0?`<span class="${unreal>=0?'up':'down'}">${unreal>=0?'+':''}${pct(unreal/cost*100)}</span>`:'—';
+  document.getElementById('hCount').textContent=new Set(holdings.map(h=>h.sym)).size;
+  document.getElementById('holdingsTable').innerHTML=rows.length?`<table class="trade-table"><thead><tr><th>Coin</th><th>Množ.</th><th>Priem. cena</th><th>Aktuálna</th><th>Hodnota</th><th>Nereal. P&L</th><th>Dátum</th><th>Pozn.</th><th></th></tr></thead><tbody>${rows.map(r=>`<tr><td style="font-weight:600;font-family:var(--mono);cursor:pointer" onclick="openChart('${r.sym}')">${r.sym}</td><td style="font-family:var(--mono)">${num(r.qty,r.qty<1?6:4)}</td><td style="font-family:var(--mono)">${r.avgEur!=null?eur(r.avgEur):'—'}</td><td style="font-family:var(--mono)">${r.live!=null?eur(r.live):'—'}</td><td style="font-family:var(--mono)">${eur(r.val)}</td><td>${r.u!=null?`<span class="${r.u>=0?'pnl-pos':'pnl-neg'}">${r.u>=0?'+':''}${eur(r.u)}</span>`:'—'}</td><td style="color:var(--text3);font-size:12px">${r.date||'—'}</td><td style="color:var(--text3);font-size:12px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${(r.note||'').replace(/"/g,'&quot;')}">${r.note||'—'}</td><td><button class="delete-btn" onclick="deleteHolding(${r.id})">✕</button></td></tr>`).join('')}</tbody></table>`:'<div style="color:var(--text3);font-size:13px;padding:16px;text-align:center">Žiadne holdingy. Pridaj coin, ktorý držíš, formulárom vyššie.</div>';
+  const ctx=document.getElementById('allocChart');if(allocChartObj)allocChartObj.destroy();const labels=Object.keys(aggBySym),data=Object.values(aggBySym);if(labels.length){allocChartObj=new Chart(ctx,{type:'doughnut',data:{labels,datasets:[{data,backgroundColor:labels.map(s=>colorFor(s)),borderColor:'#10131a',borderWidth:2}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{color:'#8b92a8',font:{size:11},boxWidth:12}},tooltip:{callbacks:{label:c=>c.label+': '+eur(c.parsed)}}}}});}
+}
+
+// ============================================================ FUTURES (trade log)
+function setSaveStatus(txt,color){const el=document.getElementById('saveStatus');if(el){el.textContent=txt;el.style.color=color;}}
+function saveFutures(){const json=JSON.stringify(futures);try{localStorage.setItem('kryptoFutures',json);localStorage.setItem('kryptoFutures_backup',json);setSaveStatus('Uložené ✓','var(--green)');}catch(e){setSaveStatus('⚠ Ukladanie zlyhalo — stiahni zálohu!','var(--red)');alert('Pozor: prehliadač nedovolil uložiť. Stiahni zálohu.');}}
+function addTrade(){let sym=document.getElementById('tSymbol').value;if(sym==='OTHER'){sym=(prompt('Zadaj symbol:')||'').trim().toUpperCase();if(!sym)return;}const side=document.getElementById('tSide').value;const date=document.getElementById('tDate').value;const profit=parseFloat(document.getElementById('tProfit').value);const note=document.getElementById('tNote').value.trim();if(!sym||!date||isNaN(profit)){alert('Vyplň coin, dátum a profit (môže byť aj záporný).');return;}futures.unshift({id:Date.now(),sym,side,date,profit,note});saveFutures();renderTradeTable();updateTradeStats();clearForm();}
+function deleteTrade(id){if(!confirm('Vymazať túto pozíciu?'))return;futures=futures.filter(t=>t.id!==id);saveFutures();renderTradeTable();updateTradeStats();}
+function clearForm(){['tProfit','tNote'].forEach(id=>document.getElementById(id).value='');document.getElementById('tDate').value=new Date().toISOString().split('T')[0];document.getElementById('tSide').value='LONG';document.getElementById('tSymbol').selectedIndex=0;}
+function renderTradeTable(){const f=document.getElementById('filterSymbol').value.trim().toUpperCase();const list=f?futures.filter(t=>t.sym.includes(f)):futures;const tb=document.getElementById('tradeTableBody');if(!list.length){tb.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:24px">Žiadne pozície. Pridaj prvú vyššie.</td></tr>';return;}tb.innerHTML=list.map(t=>`<tr><td style="color:var(--text2);font-size:12px">${t.date}</td><td style="font-weight:600;font-family:var(--mono)">${t.sym}</td><td class="${t.side==='LONG'?'long':'short'}">${t.side==='LONG'?'LONG ▲':'SHORT ▼'}</td><td class="${t.profit>=0?'pnl-pos':'pnl-neg'}">${t.profit>=0?'+':''}${eur(t.profit)}</td><td style="color:var(--text3);font-size:12px;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${(t.note||'').replace(/"/g,'&quot;')}">${t.note||'—'}</td><td><button class="delete-btn" onclick="deleteTrade(${t.id})">✕</button></td></tr>`).join('');}
+function updateTradeStats(){const profs=futures.map(t=>t.profit);const total=profs.reduce((a,b)=>a+b,0);const wins=profs.filter(p=>p>0).length;const wr=futures.length?(wins/futures.length*100):null;const best=profs.length?Math.max(...profs):null,worst=profs.length?Math.min(...profs):null;document.getElementById('fTotal').innerHTML=futures.length?`<span class="${total>=0?'up':'down'}">${total>=0?'+':''}${eur(total)}</span>`:'—';document.getElementById('fCount').textContent=futures.length;document.getElementById('fWin').innerHTML=wr!=null?`<span class="${wr>=50?'up':'down'}">${Math.round(wr)} %</span>`:'—';document.getElementById('fBest').innerHTML=best!=null?`<span class="up">+${eur(best)}</span>`:'—';document.getElementById('fWorst').innerHTML=worst!=null?`<span class="down">${eur(worst)}</span>`:'—';setSaveStatus('Uložené','var(--green)');renderLSStats();renderEquityCurve();}
+function renderLSStats(){const longs=futures.filter(t=>t.side==='LONG'),shorts=futures.filter(t=>t.side==='SHORT');const sum=a=>a.reduce((x,t)=>x+t.profit,0);const wr=a=>a.length?Math.round(a.filter(t=>t.profit>0).length/a.length*100):0;const card=(title,arr)=>`<div class="ind-item" style="flex-direction:column;align-items:flex-start;gap:6px"><span class="ind-label">${title} (${arr.length})</span><span class="ind-val ${sum(arr)>=0?'up':'down'}" style="font-size:15px">${sum(arr)>=0?'+':''}${eur(sum(arr))}</span><span style="font-size:11px;color:var(--text3)">Win rate ${wr(arr)} %</span></div>`;document.getElementById('lsStats').innerHTML=card('LONG ▲',longs)+card('SHORT ▼',shorts);}
+function renderEquityCurve(){const sorted=futures.slice().sort((a,b)=>new Date(a.date)-new Date(b.date));const ctx=document.getElementById('equityChart');if(equityChartObj)equityChartObj.destroy();if(!sorted.length)return;let eq=0;const pts=[{x:'štart',y:0}];sorted.forEach(t=>{eq+=t.profit;pts.push({x:t.date,y:eq});});equityChartObj=new Chart(ctx,{type:'line',data:{labels:pts.map(p=>p.x),datasets:[{label:'Kumulatívny profit (€)',data:pts.map(p=>p.y),borderColor:eq>=0?'#22c55e':'#ef4444',backgroundColor:(eq>=0?'#22c55e':'#ef4444')+'18',fill:true,tension:.15,pointRadius:2,borderWidth:2}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>eur(c.parsed.y)}}},scales:{x:{ticks:{color:'#565d74',maxTicksLimit:8,font:{size:9}},grid:{color:'rgba(255,255,255,0.04)'}},y:{ticks:{color:'#565d74',font:{size:10},callback:v=>eur(v,0)},grid:{color:'rgba(255,255,255,0.04)'}}}}});}
+function exportTrades(){if(!futures.length){alert('Žiadne pozície na export.');return;}const head=['Datum','Coin','Smer','Profit_EUR','Poznamka'];const rows=futures.map(t=>[t.date,t.sym,t.side,t.profit,'"'+(t.note||'').replace(/"/g,'""')+'"'].join(','));const csv=[head.join(','),...rows].join('\n');const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='futures_pozicie_'+new Date().toISOString().split('T')[0]+'.csv';a.click();}
+function exportBackup(){const payload={app:'KryptoDesk',version:4,exportedAt:new Date().toISOString(),holdings,futures,alerts};const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='kryptodesk_zaloha_'+new Date().toISOString().split('T')[0]+'.json';a.click();}
+function importBackup(ev){const file=ev.target.files[0];if(!file)return;const reader=new FileReader();reader.onload=()=>{try{const data=JSON.parse(reader.result);let impH=Array.isArray(data.holdings)?data.holdings:[];let impF=Array.isArray(data.futures)?data.futures:[];if(Array.isArray(data)){data.forEach(t=>{if(t.exit){impF.push({id:t.id,sym:t.sym,side:t.type==='BUY'?'LONG':'SHORT',date:t.date,profit:+((t.type==='BUY'?(t.exit-t.entry):(t.entry-t.exit))*t.amount).toFixed(2),note:t.note});}else{impH.push({id:t.id,sym:t.sym,qty:t.amount,avg:t.entry,date:t.date,note:t.note});}});}const merge=(holdings.length||futures.length)?confirm('Máš existujúce dáta.\n\nOK = ZLÚČIŤ\nZrušiť = NAHRADIŤ všetko'):true;if(merge){const hid=new Set(holdings.map(h=>h.id));impH.forEach(h=>{if(!hid.has(h.id))holdings.push(h);});const fid=new Set(futures.map(f=>f.id));impF.forEach(f=>{if(!fid.has(f.id))futures.push(f);});}else{holdings=impH;futures=impF;}if(Array.isArray(data.alerts)){alerts=data.alerts;saveAlerts();renderAlerts();}saveHoldings();saveFutures();renderHoldings();renderTradeTable();updateTradeStats();alert('Hotovo. Načítaných '+impH.length+' holdingov a '+impF.length+' pozícií.');}catch(e){alert('Nepodarilo sa načítať zálohu: '+e.message);}ev.target.value='';};reader.readAsText(file);}
+
+// ============================================================ ALERTS
+function saveAlerts(){localStorage.setItem('kryptoAlerts',JSON.stringify(alerts));}
+function requestNotif(){if(!('Notification' in window)){alert('Prehliadač nepodporuje notifikácie.');return;}Notification.requestPermission().then(p=>{alert(p==='granted'?'Notifikácie povolené ✓':'Notifikácie zamietnuté. Alerty sa zobrazia aspoň v zozname.');});}
+function addAlert(){const sym=document.getElementById('al_sym').value;const dir=document.getElementById('al_dir').value;const price=parseFloat(document.getElementById('al_price').value);if(!sym||!price){alert('Vyber coin a zadaj cenu.');return;}alerts.push({id:Date.now(),sym,dir,price,active:true});saveAlerts();renderAlerts();document.getElementById('al_price').value='';}
+function deleteAlert(id){alerts=alerts.filter(a=>a.id!==id);saveAlerts();renderAlerts();}
+function renderAlerts(){const el=document.getElementById('alertsList');if(!alerts.length){el.innerHTML='<div style="color:var(--text3);font-size:13px;padding:8px">Žiadne alerty.</div>';return;}el.innerHTML=alerts.map(a=>{const live=market[a.sym]?toEur(+market[a.sym].lastPrice):null;const trig=!a.active;return `<div class="alert-row ${trig?'triggered':''}"><div><b style="font-family:var(--mono)">${a.sym}</b> <span style="color:var(--text3)">${a.dir==='above'?'nad ▲':'pod ▼'}</span> <b>${eur(a.price)}</b> ${live!=null?`<span style="color:var(--text3);font-size:11px">(teraz ${eur(live)})</span>`:''} ${trig?'<span class="pill buy" style="margin-left:6px">SPUSTENÝ ✓</span>':''}</div><button class="delete-btn" onclick="deleteAlert(${a.id})">✕</button></div>`;}).join('');}
+function checkAlerts(){let changed=false;alerts.forEach(a=>{if(!a.active)return;const t=market[a.sym];if(!t)return;const liveEur=toEur(+t.lastPrice);const hit=a.dir==='above'?liveEur>=a.price:liveEur<=a.price;if(hit){a.active=false;changed=true;notify(a.sym+' '+(a.dir==='above'?'nad':'pod')+' '+eur(a.price),'Aktuálna cena: '+eur(liveEur));}});if(changed)saveAlerts();renderAlerts();}
+function notify(title,body){if('Notification' in window&&Notification.permission==='granted'){try{new Notification('🔔 '+title,{body});}catch(e){}}}
+
+// ============================================================ CHART MODAL
+function tfFmt(iv,ms){const d=new Date(ms);if(['1m','5m','15m'].includes(iv))return d.toLocaleTimeString('sk-SK',{hour:'2-digit',minute:'2-digit'});if(iv==='1h'||iv==='4h')return d.toLocaleString('sk-SK',{day:'2-digit',month:'2-digit',hour:'2-digit'});if(iv==='1w')return d.toLocaleDateString('sk-SK',{day:'2-digit',month:'2-digit',year:'2-digit'});return d.toLocaleDateString('sk-SK',{day:'2-digit',month:'2-digit'});}
+async function openChart(sym){modalSym=sym;modalTF='1d';document.getElementById('tfBtns').innerHTML=TIMEFRAMES.map(tf=>`<button class="tf-btn ${tf.key==='1d'?'active':''}" onclick="setTF('${tf.key}',this)">${tf.lbl}</button>`).join('');const c=SYM2COIN[sym]||{name:nameFor(sym),color:colorFor(sym),pair:sym+'USDT'};const t=market[sym];document.getElementById('modalCoinName').textContent=c.name+' ('+sym+')';document.getElementById('modalCoinPrice').textContent=t&&t.priceChangePercent!=undefined&&+t.priceChangePercent!==0?eur(toEur(+t.lastPrice))+'  •  '+((+t.priceChangePercent)>=0?'+':'')+pct(+t.priceChangePercent)+' za 24h':(t?eur(toEur(+t.lastPrice)):'');document.getElementById('chartModal').classList.add('open');document.getElementById('mtfRow').innerHTML='<div class="ai-loading" style="padding:8px"><div class="ai-dot"></div><div class="ai-dot"></div><div class="ai-dot"></div></div>';await drawChart();renderMTF(sym);}
+function closeChart(){document.getElementById('chartModal').classList.remove('open');if(modalChartObj){modalChartObj.destroy();modalChartObj=null;}}
+async function setTF(key,btn){modalTF=key;document.querySelectorAll('#tfBtns .tf-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');await drawChart();}
+async function drawChart(){const c=SYM2COIN[modalSym]||{color:colorFor(modalSym),pair:modalSym+'USDT'};const tf=TIMEFRAMES.find(t=>t.key===modalTF);let kl;try{kl=await fetchKlines(c.pair,tf.iv,tf.limit);}catch(e){document.getElementById('tfVerdict').innerHTML='<div class="error-msg">Graf sa nepodarilo načítať.</div>';return;}const closesRaw=kl.map(k=>+k[4]);const labels=kl.map(k=>tfFmt(tf.iv,k[0]));const closes=closesRaw.map(toEur);const e20=ema(closesRaw,20).map(v=>v==null?null:toEur(v));const e50=ema(closesRaw,50).map(v=>v==null?null:toEur(v));const ctx=document.getElementById('modalChart');if(modalChartObj)modalChartObj.destroy();modalChartObj=new Chart(ctx,{type:'line',data:{labels,datasets:[{label:'Cena (€)',data:closes,borderColor:c.color,backgroundColor:c.color+'18',fill:true,tension:.2,pointRadius:0,borderWidth:2},{label:'EMA 20',data:e20,borderColor:'#22c55e',fill:false,pointRadius:0,borderWidth:1.1,borderDash:[4,3]},{label:'EMA 50',data:e50,borderColor:'#f59e0b',fill:false,pointRadius:0,borderWidth:1.1,borderDash:[4,3]}]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},animation:false,plugins:{legend:{labels:{color:'#8b92a8',boxWidth:12,font:{size:11}}},tooltip:{callbacks:{label:c=>c.dataset.label+': '+eur(c.parsed.y)}}},scales:{x:{ticks:{color:'#565d74',maxTicksLimit:8,font:{size:10}},grid:{color:'rgba(255,255,255,0.04)'}},y:{ticks:{color:'#565d74',font:{size:10},callback:v=>eur(v,v>=1000?0:v>=1?2:4)},grid:{color:'rgba(255,255,255,0.04)'}}}}});const ind=computeIndicators(kl);const sig=scoreSignal(ind,0);const col=sig.score>=40?'var(--green)':sig.score<=-40?'var(--red)':'var(--amber)';document.getElementById('tfVerdict').style.borderLeftColor=col;document.getElementById('tfVerdict').innerHTML=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px"><span style="font-size:13px;font-weight:600">Analýza na ${tf.lbl}</span><span class="pill ${sig.label==='BUY'?'buy':sig.label==='SELL'?'sell':'wait'}">${sig.label} • ${sig.score>0?'+':''}${sig.score} (${sig.strength})</span></div><div style="font-size:12px;color:var(--text2);line-height:1.55">${sig.reasons.length?sig.reasons.join(' · '):'neutrálne podmienky'}.</div>`;document.getElementById('modalIndicators').innerHTML=`<div class="ind-item"><span class="ind-label">RSI</span><span class="ind-val ${ind.rsi>70?'down':ind.rsi<30?'up':''}">${ind.rsi!=null?Math.round(ind.rsi):'—'}</span></div><div class="ind-item"><span class="ind-label">Stoch</span><span class="ind-val">${ind.stoch!=null?Math.round(ind.stoch):'—'}</span></div><div class="ind-item"><span class="ind-label">Podpora</span><span class="ind-val" style="font-size:11px;color:var(--green)">${eur(toEur(ind.sup1))}</span></div><div class="ind-item"><span class="ind-label">Odpor</span><span class="ind-val" style="font-size:11px;color:var(--red)">${eur(toEur(ind.res1))}</span></div>`;}
+async function renderMTF(sym){const c=SYM2COIN[sym]||{pair:sym+'USDT'};const tfs=[{k:'15m',l:'15m'},{k:'1h',l:'1h'},{k:'4h',l:'4h'},{k:'1d',l:'1D'},{k:'1w',l:'1T'}];const results=await Promise.all(tfs.map(async tf=>{const meta=TIMEFRAMES.find(x=>x.key===tf.k);try{const kl=await fetchKlines(c.pair,meta.iv,meta.limit);return{tf,sig:scoreSignal(computeIndicators(kl),0)};}catch(e){return{tf,sig:null};}}));document.getElementById('mtfRow').innerHTML=results.map(r=>{if(!r.sig)return`<div class="mtf-chip"><span class="mtf-tf">${r.tf.l}</span><span style="color:var(--text3)">—</span></div>`;const cls=r.sig.label==='BUY'?'buy':r.sig.label==='SELL'?'sell':'wait';return`<div class="mtf-chip"><span class="mtf-tf">${r.tf.l}</span><span class="pill ${cls}" style="padding:2px 7px">${r.sig.label}</span><span style="font-size:10px;color:var(--text3);font-family:var(--mono)">${r.sig.score>0?'+':''}${r.sig.score}</span></div>`;}).join('');}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeChart();});
+
+// ============================================================ TABS
+function switchTab(name,btn){document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));document.getElementById('tab-'+name).classList.add('active');btn.classList.add('active');if(name==='analysis')loadIndicatorsThen(renderAnalysis,null);if(name==='signals')loadIndicatorsThen(renderSignals,'sigProg');if(name==='dca')loadIndicatorsThen(renderDca,'dcaProg');if(name==='portfolio')renderHoldings();if(name==='trades'){renderTradeTable();updateTradeStats();}if(name==='alerts')renderAlerts();}
+
+// ============================================================ LOADERS
+async function ensureAllIndicators(onProg){await mapLimit(COINS,8,async c=>{if(indCache[c.sym])return;const kl=await fetchKlines(c.pair,'1d',250);indCache[c.sym]=computeIndicators(kl);},onProg);}
+function loadIndicatorsThen(render,progId){const done=COINS.every(c=>indCache[c.sym]);if(done){render();return;}ensureAllIndicators((d,t)=>{const el=progId?document.getElementById(progId):null;if(el)el.textContent=' '+d+'/'+t;}).then(render);}
+async function loadAll(){const btn=document.getElementById('refreshBtn'),icon=document.getElementById('refreshIcon');btn.classList.add('loading');const st=document.createElement('style');st.textContent='@keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}';document.head.appendChild(st);icon.style.display='inline-block';icon.style.animation='spin 1s linear infinite';try{eurusd=await fetchEurUsd();document.getElementById('fxBadge').textContent='EUR/USD '+num(eurusd,4).replace('.',',');const [tickers,fg]=await Promise.all([fetchAllTickers(),fetchFearGreed()]);const top=buildTop100(tickers);buildCoins(top.map(o=>o.sym));market={};top.forEach(o=>{market[o.sym]=o.t;});renderMetrics(fg);renderHeatmap();renderCoinList();renderFearGreed(fg);renderRelStrength();indCache={};for(const sym of ['BTC','ETH']){if(!SYM2COIN[sym])continue;try{const kl=await fetchKlines(SYM2COIN[sym].pair,'1d',250);indCache[sym]=computeIndicators(kl);}catch(e){}}renderQuickIndicators();checkAlerts();const active=document.querySelector('.nav-tab.active').dataset.tab;if(active==='analysis')loadIndicatorsThen(renderAnalysis,null);if(active==='signals')loadIndicatorsThen(renderSignals,'sigProg');if(active==='dca')loadIndicatorsThen(renderDca,'dcaProg');if(active==='portfolio')renderHoldings();}catch(e){document.getElementById('coinList').innerHTML='<div class="error-msg">Nepodarilo sa načítať dáta z Binance. Skontroluj internet.</div>';}finally{btn.classList.remove('loading');icon.style.animation='';}}
+
+// ============================================================ INIT
+klineCache={};loadAll();renderTradeTable();updateTradeStats();renderAlerts();setSaveStatus('Uložené','var(--green)');
+setInterval(()=>{klineCache={};indCache={};loadAll();},5*60*1000);
+</script>
+</body>
+</html>
