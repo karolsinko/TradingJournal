@@ -178,9 +178,9 @@
   <div class="tab-panel" id="tab-signals">
     <div class="card" style="margin-bottom:16px"><div class="card-header"><span class="card-title">⚡ Akčný plán dňa — konkrétne pokyny</span><span class="timestamp" id="planTs"></span></div><div id="actionPlan"><div class="ai-loading"><div class="ai-dot"></div><div class="ai-dot"></div><div class="ai-dot"></div><span id="sigProg"></span></div></div></div>
     <div class="grid-3">
-      <div class="card"><div class="card-header"><span class="card-title">🟢 Kúp teraz (market)</span></div><div id="buySignals"></div></div>
-      <div class="card"><div class="card-header"><span class="card-title">🎯 Čakaj na vstup (limit / breakout)</span></div><div id="watchSignals"></div></div>
-      <div class="card"><div class="card-header"><span class="card-title">⛔ Nekupuj / slabé</span></div><div id="avoidSignals"></div></div>
+      <div class="card"><div class="card-header"><span class="card-title">🟢 Long setupy</span></div><div id="buySignals"></div></div>
+      <div class="card"><div class="card-header"><span class="card-title">🔴 Short setupy</span></div><div id="watchSignals"></div></div>
+      <div class="card"><div class="card-header"><span class="card-title">⛔ Slabé / bez hrany</span></div><div id="avoidSignals"></div></div>
     </div>
     <div class="card"><div class="card-header"><span class="card-title">Skóre podľa coinu (1D) — TOP 100</span><span class="timestamp" id="signalTs"></span></div><div style="overflow-x:auto;max-height:520px;overflow-y:auto" id="signalTable"></div></div>
   </div>
@@ -404,84 +404,126 @@ async function renderBiasBanner(fg){
   el.innerHTML=`<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap"><div style="display:flex;align-items:center;gap:12px"><span style="font-size:30px">${b.emoji}</span><div><div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em">Denný bias trhu · založený na BTC denných sviečkach</div><div style="font-size:22px;font-weight:700;color:${b.color};letter-spacing:-.5px">${b.label}</div></div></div><div style="flex:1;min-width:220px;font-size:12px;color:var(--text2);line-height:1.5">${b.advice}</div></div>${b.btcLine?`<div style="font-family:var(--mono);font-size:11px;color:var(--text3);margin-top:8px;padding:6px 10px;background:var(--bg3);border-radius:6px">📊 ${b.btcLine}</div>`:''}<div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:10px">${b.pros.length?`<div style="flex:1;min-width:200px"><div style="font-size:10px;color:var(--green);text-transform:uppercase;font-weight:600;margin-bottom:4px">Pre (${b.pros.length})</div>${b.pros.map(p=>`<div style="font-size:11px;color:var(--text2);padding:1px 0">▲ ${p}</div>`).join('')}</div>`:''}${b.cons.length?`<div style="flex:1;min-width:200px"><div style="font-size:10px;color:var(--red);text-transform:uppercase;font-weight:600;margin-bottom:4px">Proti (${b.cons.length})</div>${b.cons.map(p=>`<div style="font-size:11px;color:var(--text2);padding:1px 0">▼ ${p}</div>`).join('')}</div>`:''}</div>`;
 }
 
-function renderAnalysis(){const b=indCache['BTC'],e=indCache['ETH'];if(!b){document.getElementById('analysisContent').innerHTML='<div class="error-msg">Skús Aktualizovať.</div>';return;}const chgs=Object.values(market).map(t=>+t.priceChangePercent);const avg=chgs.reduce((a,x)=>a+x,0)/chgs.length;const bull=chgs.filter(c=>c>0).length;const reg=marketRegime();document.getElementById('analysisTs').textContent='vypočítané '+new Date().toLocaleTimeString('sk-SK',{hour:'2-digit',minute:'2-digit'});document.getElementById('analysisContent').innerHTML=`${(()=>{const b=window.__lastBias;return b?`<div class="analysis-block" style="border-left:3px solid ${b.color}"><div class="analysis-header"><span class="analysis-title">${b.emoji} Denný bias: <span style="color:${b.color}">${b.label}</span></span></div><div class="analysis-body">${b.advice}${b.cons.length?' <span style="color:var(--text3)">Riziká: '+b.cons.slice(0,2).join('; ')+'.</span>':''}</div></div>`:'';})()}${reg?`<div class="analysis-block" style="border-left:3px solid ${reg.color}"><div class="analysis-header"><span class="analysis-title">🧭 Trhový režim</span><span class="regime" style="background:${reg.color}22;color:${reg.color}">${reg.label}</span></div><div class="analysis-body">${Math.round(reg.aboveEma50)} % coinov je nad EMA50 a ${Math.round(reg.aboveEma200)} % nad EMA200. Priemerné RSI trhu ${Math.round(reg.avgRsi)}. BTC ${reg.btcUp?'v rastúcej štruktúre':'pod kľúčovými priemermi'}. ${reg.label.includes('RISK-ON')?'Prostredie praje nákupom a držaniu.':reg.label.includes('RISK-OFF')?'Opatrnosť — väčšina trhu je slabá, vhodné skôr DCA než agresívne nákupy.':'Zmiešaný trh — vyberaj selektívne.'}</div></div>`:''}<div class="analysis-block" style="border-left:3px solid var(--accent)"><div class="analysis-header"><span class="analysis-title">📋 Zhrnutie dňa</span></div><div class="analysis-body">Z ${chgs.length} coinov je ${bull} v zelenom, priemer 24h ${avg>=0?'+':''}${pct(avg)}. BTC ${b.price>b.ema50?'nad':'pod'} EMA50, volatilita (ATR) ~${eur(toEur(b.atr))}.</div></div>${(()=>{const acts=COINS.map(c=>{const i2=indCache[c.sym],t2=market[c.sym];if(!i2||!t2)return null;return{c,ind:i2,act:buildActionSignal(i2,+t2.priceChangePercent)};}).filter(r=>r&&['NOW','LIMIT','BREAKOUT'].includes(r.act.type)).sort((a,b)=>b.act.prio-a.act.prio).slice(0,3);return acts.length?`<div class="analysis-block" style="border-left:3px solid var(--green)"><div class="analysis-header"><span class="analysis-title">⚡ Akčný plán (top 3)</span><span style="font-size:10px;color:var(--text3)">detaily v záložke Signály</span></div><div class="analysis-body">${acts.map(r=>`<b>${r.c.sym}</b> — ${r.act.head}: ${r.act.instr}`).join('<br>')}</div></div>`:'';})()}<div class="analysis-block" style="border-left:3px solid #f7931a"><div class="analysis-header"><span class="analysis-title">₿ Bitcoin</span></div><div class="analysis-body">${buildCoinAnalysis('BTC')}</div></div><div class="analysis-block" style="border-left:3px solid #627eea"><div class="analysis-header"><span class="analysis-title">Ξ Ethereum</span></div><div class="analysis-body">${buildCoinAnalysis('ETH')}</div></div><div class="analysis-block" style="background:var(--blue-bg);border:1px solid rgba(59,130,246,.15)"><div class="analysis-header"><span class="analysis-title" style="color:var(--blue)">🔭 Výhľad</span></div><div class="analysis-body">Ak BTC udrží ~${eur(toEur(b.sup1))}, krátkodobý výhľad ostáva ${b.price>b.ema50?'konštruktívny':'opatrný'}. Prielom ${eur(toEur(b.res1))} otvára priestor na rast.</div></div><div class="analysis-block" style="background:var(--red-bg);border:1px solid rgba(239,68,68,.15)"><div class="analysis-header"><span class="analysis-title" style="color:var(--red)">⚠ Upozornenie</span></div><div class="analysis-body">Automatický technický výpočet, nie investičné odporúčanie. Indikátory zaostávajú a nepredpovedajú správy. Používaj stop-loss a risk management.</div></div>`;const lvl=ind=>`<div style="margin-bottom:10px"><div style="font-size:10px;color:var(--green);text-transform:uppercase;margin-bottom:6px;font-weight:600">Podpory</div><div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border)"><span style="color:var(--text2)">S1 30d</span><span style="font-family:var(--mono);color:var(--green);font-weight:600">${eur(toEur(ind.sup1))}</span></div><div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border)"><span style="color:var(--text2)">S2 90d</span><span style="font-family:var(--mono);color:var(--green);font-weight:600">${eur(toEur(ind.sup2))}</span></div></div><div><div style="font-size:10px;color:var(--red);text-transform:uppercase;margin-bottom:6px;font-weight:600">Odpory</div><div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border)"><span style="color:var(--text2)">R1 30d</span><span style="font-family:var(--mono);color:var(--red);font-weight:600">${eur(toEur(ind.res1))}</span></div><div style="display:flex;justify-content:space-between;padding:6px 0"><span style="color:var(--text2)">R2 90d</span><span style="font-family:var(--mono);color:var(--red);font-weight:600">${eur(toEur(ind.res2))}</span></div></div>`;document.getElementById('btcLevels').innerHTML=lvl(b);if(e)document.getElementById('ethLevels').innerHTML=lvl(e);}
+function renderAnalysis(){const b=indCache['BTC'],e=indCache['ETH'];if(!b){document.getElementById('analysisContent').innerHTML='<div class="error-msg">Skús Aktualizovať.</div>';return;}const chgs=Object.values(market).map(t=>+t.priceChangePercent);const avg=chgs.reduce((a,x)=>a+x,0)/chgs.length;const bull=chgs.filter(c=>c>0).length;const reg=marketRegime();document.getElementById('analysisTs').textContent='vypočítané '+new Date().toLocaleTimeString('sk-SK',{hour:'2-digit',minute:'2-digit'});document.getElementById('analysisContent').innerHTML=`${(()=>{const b=window.__lastBias;return b?`<div class="analysis-block" style="border-left:3px solid ${b.color}"><div class="analysis-header"><span class="analysis-title">${b.emoji} Denný bias: <span style="color:${b.color}">${b.label}</span></span></div><div class="analysis-body">${b.advice}${b.cons.length?' <span style="color:var(--text3)">Riziká: '+b.cons.slice(0,2).join('; ')+'.</span>':''}</div></div>`:'';})()}${reg?`<div class="analysis-block" style="border-left:3px solid ${reg.color}"><div class="analysis-header"><span class="analysis-title">🧭 Trhový režim</span><span class="regime" style="background:${reg.color}22;color:${reg.color}">${reg.label}</span></div><div class="analysis-body">${Math.round(reg.aboveEma50)} % coinov je nad EMA50 a ${Math.round(reg.aboveEma200)} % nad EMA200. Priemerné RSI trhu ${Math.round(reg.avgRsi)}. BTC ${reg.btcUp?'v rastúcej štruktúre':'pod kľúčovými priemermi'}. ${reg.label.includes('RISK-ON')?'Prostredie praje nákupom a držaniu.':reg.label.includes('RISK-OFF')?'Opatrnosť — väčšina trhu je slabá, vhodné skôr DCA než agresívne nákupy.':'Zmiešaný trh — vyberaj selektívne.'}</div></div>`:''}<div class="analysis-block" style="border-left:3px solid var(--accent)"><div class="analysis-header"><span class="analysis-title">📋 Zhrnutie dňa</span></div><div class="analysis-body">Z ${chgs.length} coinov je ${bull} v zelenom, priemer 24h ${avg>=0?'+':''}${pct(avg)}. BTC ${b.price>b.ema50?'nad':'pod'} EMA50, volatilita (ATR) ~${eur(toEur(b.atr))}.</div></div>${(()=>{const acts=COINS.map(c=>{const i2=indCache[c.sym],t2=market[c.sym];if(!i2||!t2)return null;return{c,ind:i2,act:buildActionSignal(i2,+t2.priceChangePercent)};}).filter(r=>r&&!['AVOID','NONE'].includes(r.act.type)).sort((a,b)=>b.act.prio-a.act.prio).slice(0,3);return acts.length?`<div class="analysis-block" style="border-left:3px solid var(--green)"><div class="analysis-header"><span class="analysis-title">⚡ Akčný plán (top 3)</span><span style="font-size:10px;color:var(--text3)">detaily v záložke Signály</span></div><div class="analysis-body">${acts.map(r=>`<b>${r.c.sym}</b> — ${r.act.head}: ${r.act.instr}`).join('<br>')}</div></div>`:'';})()}<div class="analysis-block" style="border-left:3px solid #f7931a"><div class="analysis-header"><span class="analysis-title">₿ Bitcoin</span></div><div class="analysis-body">${buildCoinAnalysis('BTC')}</div></div><div class="analysis-block" style="border-left:3px solid #627eea"><div class="analysis-header"><span class="analysis-title">Ξ Ethereum</span></div><div class="analysis-body">${buildCoinAnalysis('ETH')}</div></div><div class="analysis-block" style="background:var(--blue-bg);border:1px solid rgba(59,130,246,.15)"><div class="analysis-header"><span class="analysis-title" style="color:var(--blue)">🔭 Výhľad</span></div><div class="analysis-body">Ak BTC udrží ~${eur(toEur(b.sup1))}, krátkodobý výhľad ostáva ${b.price>b.ema50?'konštruktívny':'opatrný'}. Prielom ${eur(toEur(b.res1))} otvára priestor na rast.</div></div><div class="analysis-block" style="background:var(--red-bg);border:1px solid rgba(239,68,68,.15)"><div class="analysis-header"><span class="analysis-title" style="color:var(--red)">⚠ Upozornenie</span></div><div class="analysis-body">Automatický technický výpočet, nie investičné odporúčanie. Indikátory zaostávajú a nepredpovedajú správy. Používaj stop-loss a risk management.</div></div>`;const lvl=ind=>`<div style="margin-bottom:10px"><div style="font-size:10px;color:var(--green);text-transform:uppercase;margin-bottom:6px;font-weight:600">Podpory</div><div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border)"><span style="color:var(--text2)">S1 30d</span><span style="font-family:var(--mono);color:var(--green);font-weight:600">${eur(toEur(ind.sup1))}</span></div><div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border)"><span style="color:var(--text2)">S2 90d</span><span style="font-family:var(--mono);color:var(--green);font-weight:600">${eur(toEur(ind.sup2))}</span></div></div><div><div style="font-size:10px;color:var(--red);text-transform:uppercase;margin-bottom:6px;font-weight:600">Odpory</div><div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border)"><span style="color:var(--text2)">R1 30d</span><span style="font-family:var(--mono);color:var(--red);font-weight:600">${eur(toEur(ind.res1))}</span></div><div style="display:flex;justify-content:space-between;padding:6px 0"><span style="color:var(--text2)">R2 90d</span><span style="font-family:var(--mono);color:var(--red);font-weight:600">${eur(toEur(ind.res2))}</span></div></div>`;document.getElementById('btcLevels').innerHTML=lvl(b);if(e)document.getElementById('ethLevels').innerHTML=lvl(e);}
 
 // ============================================================ SIGNALS
-// Konkrétny akčný signál: KÚP TERAZ / LIMIT (pullback) / BREAKOUT / BOUNCE / NIČ
+// Trend klasifikácia
+function trendOf(ind){
+  if(ind.ema50==null)return{key:'range',lbl:'Neutrál',color:'var(--amber)'};
+  const up=ind.price>ind.ema50&&(ind.ema200==null||ind.ema50>ind.ema200);
+  const down=ind.price<ind.ema50&&(ind.ema200==null||ind.ema50<ind.ema200);
+  if(up&&ind.emaSlope>0.15)return{key:'strongup',lbl:'Silný uptrend',color:'var(--green)'};
+  if(up)return{key:'up',lbl:'Uptrend',color:'#22c55e'};
+  if(down&&ind.emaSlope<-0.15)return{key:'strongdown',lbl:'Silný downtrend',color:'var(--red)'};
+  if(down)return{key:'down',lbl:'Downtrend',color:'#ef4444'};
+  return{key:'range',lbl:'Range',color:'var(--amber)'};
+}
+// Konkrétny akčný signál pre futures: LONG/SHORT teraz, LIMIT, BREAKOUT/BREAKDOWN, BOUNCE
 function buildActionSignal(ind,chg24){
-  const sig=scoreSignal(ind,chg24);const atrv=ind.atr||0;
-  const upT=ind.ema50!=null&&ind.price>ind.ema50&&(ind.ema200==null||ind.ema50>ind.ema200);
+  const sig=scoreSignal(ind,chg24);const atrv=ind.atr||0;const tr=trendOf(ind);
+  const bias=window.__lastBias||null;const biasScore=bias?bias.score:0;
+  const upT=tr.key==='up'||tr.key==='strongup';
+  const downT=tr.key==='down'||tr.key==='strongdown';
   const range=ind.res1-ind.sup1;const posR=range>0?(ind.price-ind.sup1)/range:0.5;
   const nearSup=range>0&&posR<0.3;const nearRes=range>0&&posR>0.82;
-  const pullZone=Math.max(ind.sup1,Math.min(ind.ema20||0,ind.ema50||Infinity));
-  // 1) silný signál -> kúp hneď za trhovú cenu
+  const pullZoneL=Math.max(ind.sup1,Math.min(ind.ema20||0,ind.ema50||Infinity));
+  const pullZoneS=Math.min(ind.res1,Math.max(ind.ema20||Infinity,ind.ema50||0));
+  const biasNote=d=>{if(!bias)return'';if(d==='LONG'&&biasScore<=-2)return' ⚠ Proti dennému biasu ('+bias.label+') — menšia pozícia.';if(d==='SHORT'&&biasScore>=2)return' ⚠ Proti dennému biasu ('+bias.label+') — menšia pozícia.';if(d==='LONG'&&biasScore>=2)return' ✓ V súlade s biasom.';if(d==='SHORT'&&biasScore<=-2)return' ✓ V súlade s biasom.';return'';};
+  // 1) LONG teraz
   if(sig.score>=45&&!nearRes){
     const stop=ind.sup1-0.3*atrv;const rr=ind.price>stop?(ind.res1-ind.price)/(ind.price-stop):null;
-    return{type:'NOW',prio:100+sig.score,head:'KÚP TERAZ',pill:'buy',
-      instr:'Vstup hneď za aktuálnu cenu '+eur(toEur(ind.price))+'.',
+    return{type:'LONG_NOW',side:'LONG',prio:100+sig.score+(biasScore>=2?10:0),head:'LONG TERAZ',pill:'buy',trend:tr,
+      instr:'Long za trhovú cenu '+eur(toEur(ind.price))+'.'+biasNote('LONG'),
       entry:ind.price,stop,tp1:ind.res1,tp2:ind.res2,rr,
       reason:sig.reasons.slice(0,3).join(' · '),
-      invalid:'Zruš/vystúp, ak denná sviečka zavrie pod '+eur(toEur(stop))+'.'};
+      invalid:'Von, ak sviečka zavrie pod '+eur(toEur(stop))+'.'};
   }
-  // 2) uptrend, ale cena vysoko -> limit na pullback k podpore/EMA
+  // 2) SHORT teraz
+  if(sig.score<=-45&&!nearSup){
+    const stop=ind.res1+0.3*atrv;const rr=stop>ind.price?(ind.price-ind.sup1)/(stop-ind.price):null;
+    return{type:'SHORT_NOW',side:'SHORT',prio:100-sig.score+(biasScore<=-2?10:0),head:'SHORT TERAZ',pill:'sell',trend:tr,
+      instr:'Short za trhovú cenu '+eur(toEur(ind.price))+'.'+biasNote('SHORT'),
+      entry:ind.price,stop,tp1:ind.sup1,tp2:ind.sup2,rr,
+      reason:sig.reasons.slice(0,3).join(' · '),
+      invalid:'Von, ak sviečka zavrie nad '+eur(toEur(stop))+'.'};
+  }
+  // 3) LONG limit na pullback (uptrend, cena rozbehnutá)
   if(upT&&sig.score>=10&&(nearRes||ind.rsi>60)&&!(nearRes&&ind.macd&&ind.macd.hist>0)){
-    const trg=pullZone>0&&isFinite(pullZone)?pullZone:ind.sup1;
+    const trg=pullZoneL>0&&isFinite(pullZoneL)?pullZoneL:ind.sup1;
     const stop=ind.sup1-0.5*atrv;const rr=trg>stop?(ind.res1-trg)/(trg-stop):null;
-    return{type:'LIMIT',prio:60+sig.score,head:'LIMIT — kúp pri poklese',pill:'wait',
-      instr:'Nastav nákup pri poklese k '+eur(toEur(trg))+' (spätný test podpory/EMA).',
+    return{type:'LIMIT_L',side:'LONG',prio:60+sig.score,head:'LONG LIMIT — kúp pri poklese',pill:'wait',trend:tr,
+      instr:'Nastav long pri poklese k '+eur(toEur(trg))+' (test podpory/EMA).'+biasNote('LONG'),
       entry:trg,stop,tp1:ind.res1,tp2:ind.res2,rr,
-      reason:'uptrend trvá, ale cena je rozbehnutá — lepší vstup na pullbacku',
-      invalid:'Zruš, ak cena najprv zavrie pod '+eur(toEur(stop))+' (trend zlyhal).'};
+      reason:'uptrend trvá, cena rozbehnutá — lepší vstup na pullbacku',
+      invalid:'Zruš, ak najprv zavrie pod '+eur(toEur(stop))+'.'};
   }
-  // 3) tesne pod odporom s momentom -> breakout nákup nad úrovňou
+  // 4) SHORT limit na odraz (downtrend, cena prepadnutá)
+  if(downT&&sig.score<=-10&&(nearSup||ind.rsi<40)&&!(nearSup&&ind.macd&&ind.macd.hist<0)){
+    const trg=pullZoneS>0&&isFinite(pullZoneS)?pullZoneS:ind.res1;
+    const stop=ind.res1+0.5*atrv;const rr=stop>trg?(trg-ind.sup1)/(stop-trg):null;
+    return{type:'LIMIT_S',side:'SHORT',prio:60-sig.score,head:'SHORT LIMIT — predaj pri odraze',pill:'wait',trend:tr,
+      instr:'Nastav short pri odraze k '+eur(toEur(trg))+' (test odporu/EMA).'+biasNote('SHORT'),
+      entry:trg,stop,tp1:ind.sup1,tp2:ind.sup2,rr,
+      reason:'downtrend trvá, cena prepadnutá — lepší short na odraze',
+      invalid:'Zruš, ak najprv zavrie nad '+eur(toEur(stop))+'.'};
+  }
+  // 5) breakout long nad odporom
   if(sig.score>=5&&nearRes&&ind.macd&&ind.macd.hist>0){
     const trg=ind.res1*1.005;const stop=ind.res1-0.8*atrv;const tp1=ind.res1+(range>0?range*0.6:2*atrv);const rr=trg>stop?(tp1-trg)/(trg-stop):null;
-    return{type:'BREAKOUT',prio:55+sig.score,head:'BREAKOUT — kúp nad odporom',pill:'wait',
-      instr:'Kúp až po prerazení a zatvorení NAD '+eur(toEur(ind.res1))+' (vstup ~'+eur(toEur(trg))+').',
+    return{type:'BREAKOUT',side:'LONG',prio:55+sig.score,head:'BREAKOUT — long nad odporom',pill:'wait',trend:tr,
+      instr:'Long až po zatvorení NAD '+eur(toEur(ind.res1))+' (vstup ~'+eur(toEur(trg))+').'+biasNote('LONG'),
       entry:trg,stop,tp1,tp2:ind.res2,rr,
-      reason:'cena tlačí na odpor s bullish MACD — prielom otvára pohyb vyššie',
-      invalid:'Falošný prielom = návrat pod '+eur(toEur(ind.res1))+' → okamžite von.'};
+      reason:'tlak na odpor s bullish MACD',
+      invalid:'Falošný prielom = návrat pod '+eur(toEur(ind.res1))+' → von.'};
   }
-  // 4) hlboko prepredané -> špekulatívny odraz (menšia pozícia)
+  // 6) breakdown short pod podporou
+  if(sig.score<=-5&&nearSup&&ind.macd&&ind.macd.hist<0){
+    const trg=ind.sup1*0.995;const stop=ind.sup1+0.8*atrv;const tp1=ind.sup1-(range>0?range*0.6:2*atrv);const rr=stop>trg?(trg-tp1)/(stop-trg):null;
+    return{type:'BREAKDOWN',side:'SHORT',prio:55-sig.score,head:'BREAKDOWN — short pod podporou',pill:'wait',trend:tr,
+      instr:'Short až po zatvorení POD '+eur(toEur(ind.sup1))+' (vstup ~'+eur(toEur(trg))+').'+biasNote('SHORT'),
+      entry:trg,stop,tp1,tp2:ind.sup2,rr,
+      reason:'tlak na podporu s bearish MACD',
+      invalid:'Falošný prielom = návrat nad '+eur(toEur(ind.sup1))+' → von.'};
+  }
+  // 7) odraz z prepredania (long, špekulatívne)
   if(ind.rsi!=null&&ind.rsi<28&&ind.stoch!=null&&ind.stoch<22&&nearSup){
     const stop=ind.low90-0.3*atrv;const tp1=ind.bollMid||ind.ema20||ind.res1;const rr=ind.price>stop?(tp1-ind.price)/(ind.price-stop):null;
-    return{type:'BOUNCE',prio:40+(30-Math.round(ind.rsi)),head:'ODRAZ — špekulatívne',pill:'wait',
-      instr:'Menšia pozícia (½ bežnej) pri '+eur(toEur(ind.price))+' — hra na odraz z prepredania.',
+    return{type:'BOUNCE',side:'LONG',prio:40+(30-Math.round(ind.rsi)),head:'ODRAZ — špekulatívny long',pill:'wait',trend:tr,
+      instr:'Menšia pozícia (½ bežnej) pri '+eur(toEur(ind.price))+'.'+biasNote('LONG'),
       entry:ind.price,stop,tp1,tp2:ind.res1,rr,
-      reason:'RSI '+Math.round(ind.rsi)+' + Stochastic '+Math.round(ind.stoch)+' extrémne prepredané pri podpore',
-      invalid:'Padá ďalej pod '+eur(toEur(stop))+' → von, nôž nechytaj druhýkrát.'};
+      reason:'RSI '+Math.round(ind.rsi)+' + Stoch '+Math.round(ind.stoch)+' extrémne prepredané pri podpore',
+      invalid:'Pod '+eur(toEur(stop))+' → von.'};
   }
-  // 5) jasne slabé -> nekupuj
   if(sig.score<=-30){
-    return{type:'AVOID',prio:0,head:'NEKUPUJ',pill:'sell',
-      instr:'Žiadny nákup. '+(ind.price<ind.ema50?'Čakaj na návrat nad EMA50 ('+eur(toEur(ind.ema50))+').':''),
+    return{type:'AVOID',side:null,prio:0,head:'NEOBCHODUJ',pill:'sell',trend:tr,
+      instr:'Slabé na long, ale bez čistého short setupu.',
       entry:null,stop:null,tp1:null,tp2:null,rr:null,
-      reason:sig.reasons.slice(0,2).join(' · '),
-      invalid:''};
+      reason:sig.reasons.slice(0,2).join(' · '),invalid:''};
   }
-  return{type:'NONE',prio:0,head:'BEZ SIGNÁLU',pill:'wait',instr:'Bez jasnej hrany — nechaj tak.',entry:null,stop:null,tp1:null,tp2:null,rr:null,reason:sig.reasons.slice(0,2).join(' · ')||'zmiešané podmienky',invalid:''};
+  return{type:'NONE',side:null,prio:0,head:'BEZ SIGNÁLU',pill:'wait',trend:tr,instr:'Bez jasnej hrany.',entry:null,stop:null,tp1:null,tp2:null,rr:null,reason:sig.reasons.slice(0,2).join(' · ')||'zmiešané podmienky',invalid:''};
 }
-function actionCard(r,compact){
+function actionCard(r){
   const a=r.act;const lv=a.entry!=null?`<div class="opp-meta"><span class="opp-tag">Vstup: ${eur(toEur(a.entry))}</span><span class="opp-tag" style="color:var(--red)">Stop: ${eur(toEur(a.stop))}</span><span class="opp-tag" style="color:var(--green)">Cieľ 1: ${eur(toEur(a.tp1))}</span>${a.tp2!=null?`<span class="opp-tag" style="color:var(--green)">Cieľ 2: ${eur(toEur(a.tp2))}</span>`:''}${a.rr!=null&&isFinite(a.rr)&&a.rr>0?`<span class="opp-tag">R:R 1:${a.rr.toFixed(2)}</span>`:''}</div>`:'';
-  const cls=a.type==='NOW'?'buy-opp':a.type==='AVOID'?'avoid':'watch';
-  return `<div class="opp-card ${cls}" style="cursor:pointer" onclick="openChart('${r.c.sym}')"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;gap:6px;flex-wrap:wrap"><div class="opp-title">${r.c.sym} <span style="color:var(--text3);font-weight:400;font-size:11px">${eur(toEur(r.ind.price))}</span></div><span class="pill ${a.pill}">${a.head}</span></div><div class="opp-body"><b>${a.instr}</b></div>${lv}<div class="opp-body" style="margin-top:6px;font-size:11px">Dôvod: ${a.reason}.${a.invalid?' <span style="color:var(--amber)">'+a.invalid+'</span>':''}</div></div>`;
+  const cls=a.side==='LONG'?'buy-opp':a.side==='SHORT'?'avoid':a.type==='AVOID'?'avoid':'watch';
+  return `<div class="opp-card ${cls}" style="cursor:pointer" onclick="openChart('${r.c.sym}')"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;gap:6px;flex-wrap:wrap"><div class="opp-title">${r.c.sym} <span style="color:var(--text3);font-weight:400;font-size:11px">${eur(toEur(r.ind.price))}</span></div><div style="display:flex;gap:5px;align-items:center"><span class="opp-tag" style="color:${a.trend.color}">${a.trend.lbl}</span><span class="pill ${a.pill}">${a.head}</span></div></div><div class="opp-body"><b>${a.instr}</b></div>${lv}<div class="opp-body" style="margin-top:6px;font-size:11px">Dôvod: ${a.reason}.${a.invalid?' <span style="color:var(--amber)">'+a.invalid+'</span>':''}</div></div>`;
 }
 function renderSignals(){
   const rows=COINS.map(c=>{const ind=indCache[c.sym],t=market[c.sym];if(!ind||!t)return null;const chg=+t.priceChangePercent;return{c,ind,t,sig:scoreSignal(ind,chg),act:buildActionSignal(ind,chg)};}).filter(Boolean);
   const ts='vypočítané '+new Date().toLocaleTimeString('sk-SK',{hour:'2-digit',minute:'2-digit'});
   document.getElementById('signalTs').textContent=ts;document.getElementById('planTs').textContent=ts;
-  // Akčný plán: top pokyny podľa priority
-  const actionable=rows.filter(r=>['NOW','LIMIT','BREAKOUT','BOUNCE'].includes(r.act.type)).sort((a,b)=>b.act.prio-a.act.prio);
+  const b=window.__lastBias;
+  const biasHdr=b?`<div style="background:var(--bg3);border-left:3px solid ${b.color};border-radius:8px;padding:10px 12px;margin-bottom:10px;font-size:12px;color:var(--text2)"><b style="color:${b.color}">${b.emoji} Bias: ${b.label}.</b> ${b.score>=2?'Dnes preferuj LONG setupy; shorty len výnimočne s potvrdením.':b.score<=-2?'Dnes preferuj SHORT setupy a odrazy z prepredania; longy menšie a opatrne.':'Trh bez smeru — obchoduj oboje, ale menšie pozície a rýchlejšie ciele.'}</div>`:'';
+  const actionable=rows.filter(r=>!['AVOID','NONE'].includes(r.act.type)).sort((a,b2)=>b2.act.prio-a.act.prio);
   const plan=actionable.slice(0,5);
-  document.getElementById('actionPlan').innerHTML=(plan.length?plan.map(r=>actionCard(r)).join(''):'<div class="analysis-body" style="padding:8px">Dnes žiadne jasné nákupné pokyny — trh nedáva hranu. Nič nekupuj nasilu; pozri DCA záložku na dlhodobé prilievanie.</div>')+'<div style="font-size:10px;color:var(--text3);margin-top:6px">⚠ Automatické technické pokyny, nie investičné poradenstvo. Vstupuj len s rizikom, ktoré unesieš (~1 % účtu na trade), vždy so stop-lossom.</div>';
-  const nows=rows.filter(r=>r.act.type==='NOW').sort((a,b)=>b.act.prio-a.act.prio).slice(0,10);
-  const waits=rows.filter(r=>['LIMIT','BREAKOUT','BOUNCE'].includes(r.act.type)).sort((a,b)=>b.act.prio-a.act.prio).slice(0,12);
-  const avoids=rows.filter(r=>r.act.type==='AVOID').sort((a,b)=>a.sig.score-b.sig.score).slice(0,10);
-  document.getElementById('buySignals').innerHTML=nows.length?nows.map(r=>actionCard(r)).join(''):'<div class="analysis-body" style="padding:8px">Žiadny coin momentálne nespĺňa podmienky na okamžitý nákup.</div>';
-  document.getElementById('watchSignals').innerHTML=waits.length?waits.map(r=>actionCard(r)).join(''):'<div class="analysis-body" style="padding:8px">Žiadne čakajúce vstupy.</div>';
-  document.getElementById('avoidSignals').innerHTML=avoids.length?avoids.map(r=>actionCard(r)).join(''):'<div class="analysis-body" style="padding:8px">Žiadne varovania.</div>';
+  document.getElementById('actionPlan').innerHTML=biasHdr+(plan.length?plan.map(r=>actionCard(r)).join(''):'<div class="analysis-body" style="padding:8px">Dnes žiadne jasné pokyny — trh nedáva hranu. Nič neotváraj nasilu; pozri DCA na dlhodobé prilievanie.</div>')+'<div style="font-size:10px;color:var(--text3);margin-top:6px">⚠ Automatické technické pokyny, nie investičné poradenstvo. Riskuj ~1 % účtu na trade, vždy so stop-lossom. Pri futures pozor na páku a financovanie.</div>';
+  const longs=rows.filter(r=>r.act.side==='LONG'&&['LONG_NOW','LIMIT_L','BREAKOUT','BOUNCE'].includes(r.act.type)).sort((a,b2)=>b2.act.prio-a.act.prio).slice(0,12);
+  const shorts=rows.filter(r=>r.act.side==='SHORT').sort((a,b2)=>b2.act.prio-a.act.prio).slice(0,12);
+  const waits=rows.filter(r=>r.act.type==='AVOID').sort((a,b2)=>a.sig.score-b2.sig.score).slice(0,8);
+  document.getElementById('buySignals').innerHTML=longs.length?longs.map(r=>actionCard(r)).join(''):'<div class="analysis-body" style="padding:8px">Žiadne long setupy.</div>';
+  document.getElementById('watchSignals').innerHTML=shorts.length?shorts.map(r=>actionCard(r)).join(''):'<div class="analysis-body" style="padding:8px">Žiadne short setupy.</div>';
+  document.getElementById('avoidSignals').innerHTML=waits.length?waits.map(r=>actionCard(r)).join(''):'<div class="analysis-body" style="padding:8px">Žiadne varovania.</div>';
   const pc=l=>l==='BUY'?'buy':l==='SELL'?'sell':'wait';
-  document.getElementById('signalTable').innerHTML=`<table class="trade-table"><thead><tr><th>Symbol</th><th>Cena</th><th>Skóre</th><th>Signál</th><th>Pokyn</th><th>RSI</th><th>vs EMA50</th></tr></thead><tbody>${rows.sort((a,b)=>b.sig.score-a.sig.score).map(r=>`<tr style="cursor:pointer" onclick="openChart('${r.c.sym}')"><td style="font-weight:600;font-family:var(--mono)">${r.c.sym}</td><td style="font-family:var(--mono)">${eur(toEur(r.ind.price))}</td><td style="font-family:var(--mono);font-weight:600;color:${r.sig.score>=40?'var(--green)':r.sig.score<=-40?'var(--red)':'var(--amber)'}">${r.sig.score>0?'+':''}${r.sig.score}</td><td><span class="pill ${pc(r.sig.label)}">${r.sig.label}</span></td><td style="font-size:11px;color:var(--text2)">${r.act.head}</td><td style="font-family:var(--mono)">${Math.round(r.ind.rsi)}</td><td style="color:var(--text2)">${r.ind.price>r.ind.ema50?'nad ▲':'pod ▼'}</td></tr>`).join('')}</tbody></table>`;
+  document.getElementById('signalTable').innerHTML=`<table class="trade-table"><thead><tr><th>Symbol</th><th>Cena</th><th>Trend</th><th>Skóre</th><th>Pokyn</th><th>RSI</th><th>vs EMA50</th></tr></thead><tbody>${rows.sort((a,b2)=>b2.sig.score-a.sig.score).map(r=>`<tr style="cursor:pointer" onclick="openChart('${r.c.sym}')"><td style="font-weight:600;font-family:var(--mono)">${r.c.sym}</td><td style="font-family:var(--mono)">${eur(toEur(r.ind.price))}</td><td style="font-size:11px;color:${r.act.trend.color}">${r.act.trend.lbl}</td><td style="font-family:var(--mono);font-weight:600;color:${r.sig.score>=40?'var(--green)':r.sig.score<=-40?'var(--red)':'var(--amber)'}">${r.sig.score>0?'+':''}${r.sig.score}</td><td style="font-size:11px;color:var(--text2)">${r.act.head}</td><td style="font-family:var(--mono)">${Math.round(r.ind.rsi)}</td><td style="color:var(--text2)">${r.ind.price>r.ind.ema50?'nad ▲':'pod ▼'}</td></tr>`).join('')}</tbody></table>`;
 }
 
 // ============================================================ DCA
