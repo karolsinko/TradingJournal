@@ -15,7 +15,7 @@ Jednosúborová (`index.html`) krypto trading dashboard a trade journal. Beží 
 ## Ukladanie dát
 Dáta sa primárne ukladajú do `localStorage` prehliadača — to je viazané na konkrétny prehliadač/zariadenie. Aby trade logy neprišli o dáta pri zmene zariadenia, vyčistení dát prehliadača a pod., appka podporuje:
 
-1. **Cloud sync cez GitHub Gist** (záložka Dáta a záloha) — appka zálohuje holdingy, pozície a watchlist do súkromného Gistu na tvojom GitHub účte cez osobný token (scope len `gist`). Automaticky sa sťahuje/nahráva pri každej zmene.
+1. **Cloud sync cez Firebase** (záložka Dáta a záloha) — appka zálohuje holdingy, pozície a watchlist do tvojej vlastnej bezplatnej Firebase (Firestore) databázy. Žiadny token — len skopírované API Key + Project ID z Firebase konzoly a vygenerované ID dokumentu (funguje ako heslo). Synchronizuje sa v reálnom čase naprieč zariadeniami.
 2. **História lokálnych verzií** — posledných 15 zmien sa ukladá lokálne, s možnosťou obnovy jedným klikom.
 3. **Manuálny JSON export/import** — kompletná záloha na stiahnutie/nahratie.
 4. **CSV export/import** pozícií.
